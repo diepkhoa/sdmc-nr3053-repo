@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-    - name: 1. Tai nguyen lieu (DTS, Config) tu kho cua ban
+    - name: 1. Tai nguyen lieu (DTS, Config)
       uses: actions/checkout@v4
 
     - name: 2. Giai phong dung luong va Cai dat cong cu
@@ -19,20 +19,20 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y build-essential clang flex bison g++ gawk gcc-multilib g++-multilib gettext git libncurses5-dev libssl-dev python3-distutils rsync unzip zlib1g-dev file wget time ccache
 
-    - name: 3. Khoi tao Bo nho dem CCache
+    - name: 3. Tai ma nguon ImmortalWrt Stable 25.12.1
+      run: |
+        git clone -b v25.12.1 https://github.com/immortalwrt/immortalwrt.git immortalwrt
+        cd immortalwrt
+        ./scripts/feeds update -a
+        ./scripts/feeds install -a
+        
+    - name: 4. Khoi tao Bo nho dem CCache
       uses: actions/cache@v5.1.0
       with:
         path: immortalwrt/.ccache
         key: ccache-immortalwrt-${{ github.run_number }}
         restore-keys: |
           ccache-immortalwrt-
-
-    - name: 4. Tai ma nguon ImmortalWrt 25.12.1
-      run: |
-        git clone -b v25.12.1 https://github.com/immortalwrt/immortalwrt.git immortalwrt
-        cd immortalwrt
-        ./scripts/feeds update -a
-        ./scripts/feeds install -a
 
     - name: 5. Cau hinh phan cung va Hybrid Repo
       run: |
