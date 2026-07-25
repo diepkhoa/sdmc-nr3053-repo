@@ -60,8 +60,8 @@ jobs:
         EOF
 
         # Nhung danh sach Nguon APK Hybrid
-        mkdir -p immortalwrt/files/etc/apk
-        cat << 'EOF' > immortalwrt/files/etc/apk/repositories
+        mkdir -p immortalwrt/files/etc/apk/repositories.d
+        cat << 'EOF' > immortalwrt/files/etc/apk/repositories.d/distfeeds.list
         https://diepkhoa.github.io/sdmc-nr3053-repo/targets/mediatek/filogic/packages/packages.adb
         https://downloads.immortalwrt.org/releases/25.12.1/targets/mediatek/filogic/packages/packages.adb
         https://downloads.immortalwrt.org/releases/25.12.1/packages/aarch64_cortex-a53/base/packages.adb
