@@ -22,7 +22,7 @@ jobs:
     - name: 3. Khoi tao Bo nho dem CCache
       uses: actions/cache@v4
       with:
-        path: ~/.ccache
+        path: immortalwrt/.ccache
         key: ccache-immortalwrt-${{ hashFiles('seed.config') }}
         restore-keys: ccache-immortalwrt-
 
@@ -58,7 +58,7 @@ jobs:
         TARGET_DEVICES += sdmc_nr3053
         EOF
 
-        # Nhuung danh sach Nguon APK Hybrid
+        # Nhung danh sach Nguon APK Hybrid vao ROM
         mkdir -p immortalwrt/files/etc/apk
         cat << 'EOF' > immortalwrt/files/etc/apk/repositories
         https://diepkhoa.github.io/sdmc-nr3053-repo/targets/mediatek/filogic/packages/packages.adb
@@ -73,7 +73,6 @@ jobs:
         cd immortalwrt
         echo "CONFIG_CCACHE=y" >> .config
         make defconfig
-        export CCACHE_DIR=~/.ccache
         make download -j8
         make -j$(nproc)
 
