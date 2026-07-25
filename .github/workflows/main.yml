@@ -86,7 +86,7 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
         tag_name: "v1.${{ github.run_number }}"
-        name: "Firmware NR3053 25.12.1 v1.#${{ github.run_number }} (auto-build)"
+        name: "Firmware NR3053 25.12.1 v1.${{ github.run_number }} (auto-build)"
         files: |
           immortalwrt/bin/targets/mediatek/filogic/*sysupgrade.bin
           immortalwrt/bin/targets/mediatek/filogic/*initramfs-kernel.bin
