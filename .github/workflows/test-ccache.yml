@@ -1,0 +1,43 @@
+name: Kiem tra CCache
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test_cache_job:
+    name: Chay thu nghiem CCache
+    runs-on: ubuntu-22.04
+
+    steps:
+    - name: 1. Cai dat trinh bien dich va ccache
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc ccache
+
+    - name: 2. Khoi tao Bo nho dem (Goi actions/cache)
+      uses: actions/cache@v5.1.0
+      with:
+        path: .ccache
+        # Key co chua run_number de tao ban luu moi moi lan chay, 
+        # nhung restore-key se keo ban cu ve de tai su dung
+        key: test-ccache-${{ github.run_number }}
+        restore-keys: |
+          test-ccache-
+
+    - name: 3. Gia lap Bien dich phan mem va tao Cache
+      run: |
+        echo "=== THIET LAP DUONG DAN CCACHE ==="
+        # Tu tao thu muc .ccache giong nhu cach chung ta se lam voi OpenWrt
+        mkdir -p .ccache
+        # Ep ccache dung dung thu muc nay (GitHub Actions dung bien GITHUB_WORKSPACE la thu muc goc)
+        export CCACHE_DIR=$GITHUB_WORKSPACE/.ccache
+        
+        echo "=== TAO FILE MA NGUON C GIA LAP ==="
+        echo '#include <stdio.h>' > phanmem.c
+        echo 'int main() { printf("Chao mung ban den voi CCache!\n"); return 0; }' >> phanmem.c
+        
+        echo "=== BAT DAU BIEN DICH BANG CCACHE ==="
+        ccache gcc phanmem.c -o phanmem
+        
+        echo "=== KIEM TRA THONG KE CCACHE ==="
+        ccache -s
