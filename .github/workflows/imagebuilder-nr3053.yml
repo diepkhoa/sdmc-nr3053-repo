@@ -83,7 +83,9 @@ jobs:
     - name: 6.5. Doi ten file ROM cho dep
       run: |
         cd ib/bin/targets/mediatek/filogic/
-        rename 's/jcg_q30-pro/sdmc_nr3053/g' *
+        for f in *jcg_q30-pro*; do
+          [ -e "$f" ] && mv "$f" "${f//jcg_q30-pro/sdmc_nr3053}"
+        done
 
     - name: 7. Dang Firmware len muc Releases
       uses: softprops/action-gh-release@v2
