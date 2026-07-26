@@ -77,7 +77,7 @@ jobs:
       run: |
         cd ib
         make image PROFILE="jcg_q30-pro" \
-                   PACKAGES="luci-app-dockerman luci-app-adguardhome luci-app-wireguard tailscale" \
+                   PACKAGES="luci-app-dockerman luci-app-adguardhome luci-proto-wireguard luci-app-tailscale-community luci-app-sqm luci-app-filemanager" \
                    FILES="../custom_files"
 
     - name: 7. Dang Firmware len muc Releases
