@@ -29,7 +29,11 @@ jobs:
     - name: 4. Khoi tao Bo nho dem CCache
       uses: actions/cache@v5.1.0
       with:
-        path: immortalwrt/.ccache
+        path: |
+          immortalwrt/.ccache
+          immortalwrt/dl
+          immortalwrt/staging_dir/host
+          immortalwrt/staging_dir/toolchain-*
         key: ccache-immortalwrt-${{ github.run_number }}
         restore-keys: |
           ccache-immortalwrt-
@@ -59,9 +63,15 @@ jobs:
         TARGET_DEVICES += sdmc_nr3053
         EOF
 
-        # Nhung danh sach Nguon APK Hybrid
-        mkdir -p immortalwrt/files/etc/apk/repositories.d
-        cat << 'EOF' > immortalwrt/files/etc/apk/repositories.d/distfeeds.list
+        # DUNG KICH BAN FIRST-BOOT DE EP HE THONG NHAN REPO CHUAN
+        mkdir -p immortalwrt/files/etc/uci-defaults
+        cat << 'EOF' > immortalwrt/files/etc/uci-defaults/99-custom-repos
+        #!/bin/sh
+        # Xoa bo cac file backup rac do he thong tu tao ra
+        rm -f /etc/apk/repositories.d/*.bak
+        
+        # Ghi de vinh vien danh sach kho chuan (Hybrid Repo)
+        cat << 'REPO_EOF' > /etc/apk/repositories.d/distfeeds.list
         https://diepkhoa.github.io/sdmc-nr3053-repo/targets/mediatek/filogic/packages/packages.adb
         https://downloads.immortalwrt.org/releases/25.12.1/targets/mediatek/filogic/packages/packages.adb
         https://downloads.immortalwrt.org/releases/25.12.1/packages/aarch64_cortex-a53/base/packages.adb
@@ -69,8 +79,12 @@ jobs:
         https://downloads.immortalwrt.org/releases/25.12.1/packages/aarch64_cortex-a53/packages/packages.adb
         https://downloads.immortalwrt.org/releases/25.12.1/packages/aarch64_cortex-a53/routing/packages.adb
         https://downloads.immortalwrt.org/releases/25.12.1/packages/aarch64_cortex-a53/telephony/packages.adb
-        https://downloads.immortalwrt.org/releases/25.12.1/packages/aarch64_cortex-a53/video/packages.adb
+        REPO_EOF
+        # Thoat de he thong tu dong xoa kich ban nay sau khi chay xong
+        exit 0
         EOF
+        # Cap quyen thuc thi cho kich ban
+        chmod +x immortalwrt/files/etc/uci-defaults/99-custom-repos
 
     - name: 6. Bat dau Bien dich (Dung CCache)
       run: |
