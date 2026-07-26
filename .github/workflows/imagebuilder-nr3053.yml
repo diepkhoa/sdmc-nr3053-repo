@@ -1,4 +1,4 @@
-name: Build NR3053 ImageBuilder (Sieu Toc 2 Phut)
+name: Build NR3053 ImageBuilder
 
 on:
   workflow_dispatch:
@@ -15,34 +15,37 @@ jobs:
     - name: 1. Tai nguyen lieu (DTS) tu kho cua ban
       uses: actions/checkout@v4
 
-    - name: 2. Cai dat cong cu giai nen Sieu toc (zstd)
+    - name: 2. Cai dat cong cu giai nen Sieu toc (zstd va python3)
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential libncurses5-dev libssl-dev python3-distutils rsync unzip zlib1g-dev file wget zstd
+        sudo apt-get install -y build-essential libncurses5-dev libssl-dev python3-distutils rsync unzip zlib1g-dev file wget zstd python3
 
     - name: 3. Tai bo hinh anh ImageBuilder Chinh hang tu ImmortalWrt
       run: |
-        # Tai file ImageBuilder pre-compiled tu may chu chinh thuc
         IB_URL="https://downloads.immortalwrt.org/releases/${{ env.IB_VERSION }}/targets/mediatek/filogic/immortalwrt-imagebuilder-${{ env.IB_VERSION }}-mediatek-filogic.Linux-x86_64.tar.zst"
         wget -q $IB_URL -O imagebuilder.tar.zst || wget -q "https://downloads.immortalwrt.org/releases/${{ env.IB_VERSION }}/targets/mediatek/filogic/immortalwrt-imagebuilder-${{ env.IB_VERSION }}-mediatek-filogic.Linux-x86_64.tar.xz" -O imagebuilder.tar.zst
         
         mkdir -p ib
         tar -xaf imagebuilder.tar.zst -C ib --strip-components=1
 
-    - name: 4. Bơm DTS va Dinh nghia thiet bi NR3053
+    - name: 4. Bom DTS va Muon xac Profile jcg_q30-pro
       run: |
-        # Dua file DTS cua ban vao ImageBuilder
+        # Copy DTS cua NR3053 vao ImageBuilder
         mkdir -p ib/target/linux/mediatek/files-6.12/arch/arm64/boot/dts/mediatek/
         cp mt7981b-sdmc-nr3053.dts ib/target/linux/mediatek/files-6.12/arch/arm64/boot/dts/mediatek/
 
-        # Chen Profile NR3053 vao filogic.mk cua ImageBuilder
-        cat << 'EOF' >> ib/target/linux/mediatek/image/filogic.mk
-        define Device/sdmc_nr3053
+        # Dung Python de ghi de ruot cua Profile jcg_q30-pro thanh NR3053 (256MB ROM)
+        python3 -c "
+        import re
+        with open('ib/target/linux/mediatek/image/filogic.mk', 'r') as f:
+            content = f.read()
+
+        new_device = '''define Device/jcg_q30-pro
           DEVICE_VENDOR := SDMC
           DEVICE_MODEL := NR3053 - DiepKhoa ImageBuilder
           DEVICE_DTS := mt7981b-sdmc-nr3053
           DEVICE_DTS_DIR := ../files-6.12/arch/arm64/boot/dts/mediatek
-          SUPPORTED_DEVICES := sdmc,nr3053
+          SUPPORTED_DEVICES := sdmc,nr3053 jcg,q30-pro
           UBINIZE_OPTS := -E 5
           BLOCKSIZE := 128k
           PAGESIZE := 2048
@@ -51,27 +54,30 @@ jobs:
           IMAGE/factory.bin := append-ubi | check-size
           IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
           DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
-        endef
-        TARGET_DEVICES += sdmc_nr3053
-        EOF
+        endef'''
 
-    - name: 5. Nhung SSH Banner
+        content = re.sub(r'define Device/jcg_q30-pro.*?endef', new_device, content, flags=re.DOTALL)
+
+        with open('ib/target/linux/mediatek/image/filogic.mk', 'w') as f:
+            f.write(content)
+        "
+
+    - name: 5. Nhung SSH Banner Ca Nhan (DiepKhoa Edition)
       run: |
         mkdir -p custom_files/etc
         cat << 'EOF' > custom_files/etc/banner
         =================================================
-            SDMC NR3053 - DIEPKHOA EDITION
+            SDMC NR3053 - DIEPKHOA IMAGEBUILDER EDITION
             ImmortalWrt 25.12.1 Stable | Kernel 6.12
-            A U OK?
+            A U Ok?
         =================================================
         EOF
 
-    - name: 6. Lap ghep ROM Sieu Toc (KHONG BIEN DICH C)
+    - name: 6. Lap ghep ROM Sieu Toc (Chi ton 1-2 phut)
       run: |
         cd ib
-        # Liet ke cac app ban muon cai san vao ROM o muc PACKAGES
-        make image PROFILE="sdmc_nr3053" \
-                   PACKAGES="luci-app-adguardhome luci-proto-wireguard luci-app-tailscale-community luci-app-sqm luci-app-adguardhome" \
+        make image PROFILE="jcg_q30-pro" \
+                   PACKAGES="luci-app-dockerman luci-app-adguardhome luci-app-wireguard tailscale" \
                    FILES="../custom_files"
 
     - name: 7. Dang Firmware len muc Releases
