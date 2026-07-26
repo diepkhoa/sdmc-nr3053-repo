@@ -23,7 +23,10 @@ jobs:
     - name: 3. Tai bo hinh anh ImageBuilder Chinh hang tu ImmortalWrt
       run: |
         IB_URL="https://downloads.immortalwrt.org/releases/${{ env.IB_VERSION }}/targets/mediatek/filogic/immortalwrt-imagebuilder-${{ env.IB_VERSION }}-mediatek-filogic.Linux-x86_64.tar.zst"
-        wget -q $IB_URL -O imagebuilder.tar.zst || wget -q "https://downloads.immortalwrt.org/releases/${{ env.IB_VERSION }}/targets/mediatek/filogic/immortalwrt-imagebuilder-${{ env.IB_VERSION }}-mediatek-filogic.Linux-x86_64.tar.xz" -O imagebuilder.tar.zst
+        
+        # Bo co -q de hien thanh tien trinh, them timeout 30s neu nghen se tu chuyen sang server du phong
+        wget --timeout=30 --tries=3 "$IB_URL" -O imagebuilder.tar.zst || \
+        wget --timeout=30 --tries=3 "https://mirrors.vsean.net/openwrt/releases/${{ env.IB_VERSION }}/targets/mediatek/filogic/immortalwrt-imagebuilder-${{ env.IB_VERSION }}-mediatek-filogic.Linux-x86_64.tar.zst" -O imagebuilder.tar.zst
         
         mkdir -p ib
         tar -xaf imagebuilder.tar.zst -C ib --strip-components=1
