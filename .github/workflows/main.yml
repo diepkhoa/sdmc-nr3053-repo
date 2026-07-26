@@ -65,7 +65,7 @@ jobs:
 
         # DUNG KICH BAN FIRST-BOOT DE EP HE THONG NHAN REPO CHUAN
         mkdir -p immortalwrt/files/etc/uci-defaults
-        cat << 'EOF' > immortalwrt/files/etc/uci-defaults/99-custom-repos
+        cat << 'EOF' > immortalwrt/files/etc/uci-defaults/zz-custom-repos
         #!/bin/sh
         # Xoa bo cac file backup rac do he thong tu tao ra
         rm -f /etc/apk/repositories.d/*.bak
@@ -80,11 +80,38 @@ jobs:
         https://downloads.immortalwrt.org/releases/25.12.1/packages/aarch64_cortex-a53/routing/packages.adb
         https://downloads.immortalwrt.org/releases/25.12.1/packages/aarch64_cortex-a53/telephony/packages.adb
         REPO_EOF
+
+        uci delete system.ntp.server
+        uci add_list system.ntp.server='162.159.200.1'
+        uci add_list system.ntp.server='216.239.35.0'
+        uci add_list system.ntp.server='0.openwrt.pool.ntp.org'
+        uci commit system
+        
+        # TOI UU HOA TOC DO GIAO DIEN WEB LUCI
+        uci set uhttpd.main.max_requests='100'
+        uci set uhttpd.main.tcp_keepalive='1'
+        uci commit uhttpd
         # Thoat de he thong tu dong xoa kich ban nay sau khi chay xong
         exit 0
         EOF
         # Cap quyen thuc thi cho kich ban
-        chmod +x immortalwrt/files/etc/uci-defaults/99-custom-repos
+        chmod +x immortalwrt/files/etc/uci-defaults/zz-custom-repos
+        # TAO BANNER CHO SSH
+        mkdir -p immortalwrt/files/etc
+        cat << 'EOF' > immortalwrt/files/etc/banner
+          ____  _           ____  _  ___                 
+         |  _ \(_) ___ _ __|  _ \| |/ / |__   ___   __ _ 
+         | | | | |/ _ \ '_ \ | | | ' /| '_ \ / _ \ / _` |
+         | |_| | |  __/ |_) | |_| | . \| | | | (_) | (_| |
+         |____/|_|\___| .__/|____/|_|\_\_| |_|\___/ \__,_|
+                      |_|                                 
+         --------------------------------------------------
+           SDMC NR3053 - DIEPKHOA EDITION
+           ImmortalWrt 25.12.1 Stable | Kernel 6.12.94
+           BE FREE and UNAFAIRD
+         --------------------------------------------------  
+         
+        EOF
 
     - name: 6. Bat dau Bien dich (Dung CCache)
       run: |
