@@ -80,6 +80,11 @@ jobs:
                    PACKAGES="luci-app-dockerman luci-app-adguardhome luci-proto-wireguard luci-app-tailscale-community luci-app-sqm luci-app-filemanager" \
                    FILES="../custom_files"
 
+    - name: 6.5. Doi ten file ROM cho dep
+      run: |
+        cd ib/bin/targets/mediatek/filogic/
+        rename 's/jcg_q30-pro/sdmc_nr3053/g' *
+
     - name: 7. Dang Firmware len muc Releases
       uses: softprops/action-gh-release@v2
       with:
