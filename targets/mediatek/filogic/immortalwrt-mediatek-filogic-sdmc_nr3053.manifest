@@ -1,4 +1,3 @@
-adguardhome - 0.107.76-r1
 apk-openssl - 3.0.5-r3
 autocore - 42
 base-files - 1942~cd0a06bfd3fd
@@ -7,7 +6,6 @@ bridger - 2025.10.23~9fc2bc3e
 busybox - 1.37.0-r6
 ca-bundle - 20260601-r1
 cgi-io - 2026.06.28~7314451c-r1
-cpufreq - 1
 default-settings - 29
 default-settings-chn - 29
 dnsmasq-full - 2.93-r1
@@ -112,6 +110,7 @@ kmod-sched-cake - 6.12.94-r1
 kmod-sched-core - 6.12.94-r1
 kmod-sched-flower - 6.12.94-r1
 kmod-slhc - 6.12.94-r1
+kmod-tcp-bbr - 6.12.94-r1
 kmod-thermal - 6.12.94-r1
 kmod-tun - 6.12.94-r1
 kmod-udptunnel4 - 6.12.94-r1
@@ -154,7 +153,6 @@ libustream-openssl20201210 - 2026.03.01~99f1c0db-r1
 libxtables12 - 1.8.10-r3
 logd - 2025.10.30~6f78fa49-r1
 luci - 26.187.07797~ed7692c
-luci-app-adguardhome - 26.187.07797~ed7692c
 luci-app-filemanager - 26.187.07797~ed7692c
 luci-app-firewall - 26.187.07797~ed7692c
 luci-app-package-manager - 26.187.07797~ed7692c
@@ -185,7 +183,6 @@ nftables-json - 1.1.6-r2
 odhcp6c - 2026.06.20~07d324ee-r2
 odhcpd-ipv6only - 2026.06.29~5d7be43f-r1
 openwrt-keyring - 2025.12.11~14e1f88b-r1
-pbr - 1.2.2-r18
 ppp - 2.5.2-r3
 ppp-mod-pppoe - 2.5.2-r3
 procd - 2026.03.13~58eb263d-r1
