@@ -40,7 +40,7 @@ jobs:
     - name: 5. Cau hinh phan cung va Hybrid Repo
       run: |
         # 1. Copy file DTS vao cay ma nguon
-        cp mt7981b-sdmc-nr3053-new.dts immortalwrt/target/linux/mediatek/files-6.12/arch/arm64/boot/dts/mediatek/
+        cp mt7981b-sdmc-nr3053.dts immortalwrt/target/linux/mediatek/files-6.12/arch/arm64/boot/dts/mediatek/
         
         # 2. Chen cau hinh thiet bi Full-UBI vao filogic.mk
         cat << 'EOF' >> immortalwrt/target/linux/mediatek/image/filogic.mk
