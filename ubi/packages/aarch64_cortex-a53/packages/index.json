@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "architecture": "aarch64_cortex-a53",
+  "packages": {
+    "adguardhome": "0.107.76-r1",
+    "cgi-io": "2026.06.28~7314451c-r1",
+    "irqbalance": "1.9.5-r1",
+    "pbr": "1.2.2-r18",
+    "sqm-scripts": "1.7.2-r1",
+    "tailscale": "1.98.3-r1"
+  }
+}
