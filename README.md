@@ -1,56 +1,107 @@
-# ImmortalWrt 25.12.1 Firmware for SDMC NR3053 (256MB NAND Flash)
 
-This is a personal Firmware and APK/OPKG Repository dedicated to the **SDMC NR3053** router (Powered by MediaTek MT7981 SoC, 512MB RAM, 256MB SPI NAND Flash). 
 
-This custom firmware includes hardware optimizations, fixes the `fit0` rootfs bootloop issue, fully recognizes the 256MB NAND Flash, and comes pre-configured with a 100% kernel-hash-matched package repository.
-
----
-
-## ⚠️ DISCLAIMER ⚠️
-- These instructions are **ONLY INTENDED FOR ROUTERS THAT ARE ALREADY UNLOCKED AND RUNNING OPENWRT / CUSTOM U-BOOT**.
-- Overwriting bootloader partitions (BL2 and FIP) is an **extremely dangerous operation**. Any mistake (flashing to wrong partitions, power interruption) WILL permanently hard-brick your router, requiring chip desoldering and a CH341A hardware programmer to recover.
-- **I take no responsibility** for any damages, data loss, or bricked devices resulting from the use of files or instructions in this repository. Proceed strictly at your own risk!
+# ImmortalWrt cho SDMC NR3053 (MediaTek MT7981 / Filogic 820)
+**OS:** ImmortalWrt 25.12.1 Stable | Kernel 6.12  
+**Board:** SDMC NR3053 (Router Wi-Fi 6 Mesh Viettel / OEM)
 
 ---
 
-## 🛠 INSTALLATION GUIDE
+## 1. Gioi thieu ve 2 chuan Firmware trong Repository
 
-### STEP 1: Flash Standard NR3053 U-Boot (Mandatory)
-To ensure proper partition alignment and system stability, you must overwrite your current U-Boot with the standard NR3053 U-Boot provided in this repository.
+Repository nay cung cap 2 loai firmware khac nhau nham dam bao tinh tuong thich voi tung loai Bootloader (U-Boot) ma router cua ban dang su dung:
 
-1. Download `mt7981-sdmc-nr3053-bl2.bin` and `mt7981-sdmc-nr3053-fip.bin` from this repository to your computer.
-2. Upload both files to the `/tmp/` directory on your router using WinSCP or MobaXterm (SFTP).
-3. SSH into your router (using PuTTY or MobaXterm).
-4. Verify your current partition table layout:
-   ```bash
-   cat /proc/mtd
-   ```
-   *(Ensure that `bl2` and `fip` partition names exist in the output).*
-5. Flash both bootloader partitions (DOUBLE-CHECK PARTITION NAMES BEFORE EXECUTING):
-   ```bash
-   mtd write /tmp/mt7981-sdmc-nr3053-bl2.bin bl2
-   mtd write /tmp/mt7981-sdmc-nr3053-fip.bin fip
-   ```
+### A. Chuan Full-UBI / FIT Image (Khuyen dung - Hien dai nhat)
+* **Dac diem:** Su dung U-Boot Mod (co giao dien cuu ho Web Recovery tai 192.168.1.1). Kernel va Device Tree duoc dong goi chung vao Volume `fit` trong phan vung UBI.
+* **Uu diem:** Khong bi gioi han dung luong Kernel, ho tro quan ly Bad Block tren Flash NAND tot hon, co giao dien Web de cuu ho neu gap su co.
+* **Dinh dang file:** `*sysupgrade.bin` hoac `*factory.bin` (danh cho Full-UBI).
 
-### STEP 2: Flash ImmortalWrt 25.12.1 Firmware
-After flashing U-Boot, choose one of the following methods to install the firmware:
+### B. Chuan Legacy (Tach biet Kernel va RootFS rieng le)
+* **Dac diem:** Danh cho cac may van dang giu U-Boot goc hoac U-Boot SDK cu khong co Web Recovery. He thong chia tach roi 2 phan vung/volume: `kernel` (khoang 4MB) va `rootfs` (khoang 16MB).
+* **Dinh dang file:** Ban build danh rieng cho layout tach phan vung truyen thong.
 
-**Method 1: Flash directly via SSH (Recommended)**
-Still in the SSH session, upload the Sysupgrade image (from the Releases section) to `/tmp/` and run:
+---
+
+## 2. Huong dan kiem tra chuan U-Boot tren Router qua SSH
+
+Truoc khi nap bat ky ban firmware nao, ban BAT BUOC phai kiem tra xem router hien tai dang chay theo chuan nao de tranh tinh trang bi treo bootloader (Hard/Soft Brick).
+
+Dang nhap vao router qua SSH va thuc hien cac lenh sau:
+
+### Buoc 1: Kiem tra cau truc Volume UBI
+Chay lenh:
 ```bash
-sysupgrade -n /tmp/immortalwrt-mediatek-filogic-sdmc_nr3053-squashfs-sysupgrade.bin
+ubinfo -a
 ```
 
-**Method 2: Flash via Recovery Mode (TFTP / UART)**
-If the router fails to boot into the operating system, access the U-Boot recovery environment:
-1. Use TFTP to boot `immortalwrt-mediatek-filogic-sdmc_nr3053-initramfs-recovery.itb` directly into RAM.
-2. Log into the temporary LuCI web interface at `192.168.1.1`.
-3. Go to **System -> Backup / Flash Firmware** -> Upload `immortalwrt-mediatek-filogic-sdmc_nr3053-squashfs-sysupgrade.bin`.
-4. **UNCHECK "Keep settings"** and proceed to flash.
+**Doc ket qua:**
+* **Truong hop 1 - Router dung chuan Full-UBI:**
+  Trong danh sach hien thi, ban se thay Volume ID 0 (hoac mot Volume duy nhat cho he thong) co ten la **`fit`**, di kem voi `rootfs` va `rootfs_data`. Khong co Volume nao ten rieng la `kernel`.
+  -> **Ket luan:** Chon tai va nap ban **Firmware Full-UBI**.
+
+* **Truong hop 2 - Router dung chuan Tach biet (Legacy Split):**
+  Trong danh sach hien thi, ban se thay 2 Volume rieng biet:
+  * Volume co ten la **`kernel`** (Dung luong khoang 4.4 MiB).
+  * Volume co ten la **`rootfs`** (Dung luong khoang 16.2 MiB).
+  -> **Ket luan:** Chon tai va nap ban **Firmware Legacy**.
 
 ---
 
-## 📦 INTEGRATED PACKAGE REPOSITORY
-The firmware images in the Releases section come pre-configured to automatically point to this GitHub Pages repository. When you navigate to LuCI and click `Update lists`, the router will seamlessly fetch `kmod` packages that match your kernel build with zero signature or vermagic mismatch errors.
+### Buoc 2: Kiem tra cau lenh Boot cua U-Boot (Tuy chon them)
+Chay lenh quet chuoi bien moi truong:
+```bash
+strings /dev/mtd1 | grep -iE "mtkboardboot|bootmenu_0|bootcmd"
+```
 
-Good luck!
+* **Neu ket qua tra ve:** `bootmenu_0=Startup system (Default)=mtkboardboot`
+  -> Router cua ban da duoc cai U-Boot Mod ho tro Full-UBI va co Web Recovery.
+* **Neu ket qua tra ve:** Cac lenh dang `ubi read ... kernel` hoac `nand read ... kernel`
+  -> Router cua ban dang dung co che doc Kernel tach roi.
+
+---
+
+## 3. Huong dan lua chon va Nap Firmware
+
+| Tinh trang U-Boot hien tai | Ban Firmware can tai | Cach nap an toan |
+| :--- | :--- | :--- |
+| U-Boot ho tro Full-UBI (Co Web Recovery) | `Firmware NR3053 Full-UBI (*.bin)` | Nap qua giao dien Web Recovery (192.168.1.1) hoac LuCI Sysupgrade |
+| U-Boot Legacy (Doc phan vung `kernel` rieng) | `Firmware NR3053 Legacy (*.bin)` | Nap qua giao dien LuCI cua ban ROM cu hoac SSH `sysupgrade` |
+
+[Luu y quan trong]: Neu ban nap nham ban Firmware Full-UBI vao U-Boot Legacy (hoac nguoc lai), router se khong the tim thay Kernel de khoi dong va se bi dung o man hinh boot.
+
+---
+
+## 4. Kho goi phan mem (Kmod / APK Repository)
+
+Repository nay da tich hop he thong stream package tu dong qua GitHub Pages de phong tranh loi khong khop Kernel Hash (vermagic):
+
+### A. Danh cho Router chay chuan Full-UBI moi:
+He thong duoc cau hinh tu dong tro den kho luu tru rieng tai:
+```text
+https://diepkhoa.github.io/sdmc-nr3053-repo/ubi/targets/mediatek/filogic/packages/packages.adb
+```
+
+### B. Danh cho Router chay chuan Legacy cu:
+Cac router chay ban firmware cu van tiep tuc su dung kho kmod truyen thong ma khong bi anh huong:
+```text
+https://diepkhoa.github.io/sdmc-nr3053-repo/targets/mediatek/filogic/packages/packages.adb
+```
+
+---
+
+## 5. Huong dan truy cap U-Boot Web Recovery (Doi voi ban Full-UBI)
+
+Khi can cuu ho hoac nang cap firmware moi:
+1. Rut nguon dien khoi router.
+2. Dung que tam nhan va giu nut Reset, dong thoi cam lai day nguon.
+3. Giu nut Reset trong khoang tu 5 den 8 giay cho den khi den bao trang thai nhap nhay thi tha tay.
+4. Dat IP tinh tren may tinh:
+   * IP Address: `192.168.1.2`
+   * Subnet Mask: `255.255.255.0`
+   * Default Gateway: `192.168.1.1`
+5. Mo trinh duyet web va truy cap dia chi: `http://192.168.1.1` de vao giao dien Recovery Mode WEBUI.
+
+---
+
+## 6. Canh bao an toan
+* Khong bao gio ghi de hoac xoa phan vung `Factory` (`mtd2`). Day la noi luu tru dia chi MAC va thong so can chinh song Wi-Fi goc cua thiet bi.
+* Luon sao luu toan bo cac phan vung MTD truoc khi thuc hien cac thao tac can thiep vao Bootloader.
