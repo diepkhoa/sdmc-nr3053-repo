@@ -1,0 +1,143 @@
+name: Build ImmortalWrt NR3053 UBI (25.12.1)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Firmware Full-UBI
+    runs-on: ubuntu-22.04
+
+    steps:
+    - name: 1. Tai nguyen lieu (DTS, Config)
+      uses: actions/checkout@v4
+
+    - name: 2. Giai phong dung luong va Cai dat cong cu
+      run: |
+        sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/share/swift
+        sudo apt-get update
+        sudo apt-get install -y build-essential clang flex bison g++ gawk gcc-multilib g++-multilib gettext git libncurses5-dev libssl-dev python3-distutils rsync unzip zlib1g-dev file wget time ccache
+
+    - name: 3. Tai ma nguon ImmortalWrt Stable 25.12.1
+      run: |
+        git clone -b v25.12.1 https://github.com/immortalwrt/immortalwrt.git immortalwrt
+        cd immortalwrt
+        ./scripts/feeds update -a
+        ./scripts/feeds install -a
+        
+    - name: 4. Khoi tao Bo nho dem CCache
+      uses: actions/cache@v4
+      with:
+        path: |
+          immortalwrt/.ccache
+          immortalwrt/dl
+          immortalwrt/staging_dir/host
+          immortalwrt/staging_dir/toolchain-*
+        key: ccache-immortalwrt-ubi-${{ github.run_number }}
+        restore-keys: |
+          ccache-immortalwrt-ubi-
+
+    - name: 5. Cau hinh phan cung va Hybrid Repo
+      run: |
+        # 1. Copy file DTS vao cay ma nguon
+        cp mt7981b-sdmc-nr3053-new.dts immortalwrt/target/linux/mediatek/files-6.12/arch/arm64/boot/dts/mediatek/
+        
+        # 2. Chen cau hinh thiet bi Full-UBI vao filogic.mk
+        cat << 'EOF' >> immortalwrt/target/linux/mediatek/image/filogic.mk
+        define Device/sdmc_nr3053
+          DEVICE_VENDOR := SDMC
+          DEVICE_MODEL := NR3053 (UBI Layout)
+          DEVICE_DTS := mt7981b-sdmc-nr3053
+          DEVICE_DTS_DIR := ../files-6.12/arch/arm64/boot/dts/mediatek
+          SUPPORTED_DEVICES := sdmc,nr3053
+          UBINIZE_OPTS := -E 5
+          BLOCKSIZE := 128k
+          PAGESIZE := 2048
+          IMAGE_SIZE := 245760k
+          KERNEL := kernel-bin | lzma | fit lzma $$(KDIR)/image-$$(DEVICE_DTS).dtb
+          KERNEL_INITRAMFS := kernel-bin | lzma | fit lzma $$(KDIR)/image-$$(DEVICE_DTS).dtb
+          IMAGES += factory.bin sysupgrade.bin
+          IMAGE/factory.bin := append-ubi | check-size
+          IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+          DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
+        endef
+        TARGET_DEVICES += sdmc_nr3053
+        EOF
+
+        # 3. KICH BAN FIRST-BOOT: Tro kho Kmod sang thu muc /ubi/ 
+        mkdir -p immortalwrt/files/etc/uci-defaults
+        cat << 'EOF' > immortalwrt/files/etc/uci-defaults/zz-custom-repos
+        #!/bin/sh
+        rm -f /etc/apk/repositories.d/*.bak
+        
+        # Kho streaming rieng biet tai /ubi/
+        cat << 'REPO_EOF' > /etc/apk/repositories.d/distfeeds.list
+        https://diepkhoa.github.io/sdmc-nr3053-repo/ubi/targets/mediatek/filogic/packages/packages.adb
+        https://downloads.immortalwrt.org/releases/25.12.1/targets/mediatek/filogic/packages/packages.adb
+        https://downloads.immortalwrt.org/releases/25.12.1/packages/aarch64_cortex-a53/base/packages.adb
+        https://downloads.immortalwrt.org/releases/25.12.1/packages/aarch64_cortex-a53/luci/packages.adb
+        https://downloads.immortalwrt.org/releases/25.12.1/packages/aarch64_cortex-a53/packages/packages.adb
+        https://downloads.immortalwrt.org/releases/25.12.1/packages/aarch64_cortex-a53/routing/packages.adb
+        https://downloads.immortalwrt.org/releases/25.12.1/packages/aarch64_cortex-a53/telephony/packages.adb
+        REPO_EOF
+
+        uci delete system.ntp.server
+        uci add_list system.ntp.server='162.159.200.1'
+        uci add_list system.ntp.server='216.239.35.0'
+        uci add_list system.ntp.server='0.openwrt.pool.ntp.org'
+        uci commit system
+        
+        uci set uhttpd.main.max_requests='100'
+        uci set uhttpd.main.tcp_keepalive='1'
+        uci commit uhttpd
+        exit 0
+        EOF
+        chmod +x immortalwrt/files/etc/uci-defaults/zz-custom-repos
+
+        # 4. TAO BANNER
+        mkdir -p immortalwrt/files/etc
+        cat << 'EOF' > immortalwrt/files/etc/banner
+          ____  _           ____  _  ___                 
+         |  _ \(_) ___ _ __|  _ \| |/ / |__   ___   __ _ 
+         | | | | |/ _ \ '_ \ | | | ' /| '_ \ / _ \ / _` |
+         | |_| | |  __/ |_) | |_| | . \| | | | (_) | (_| |
+         |____/|_|\___| .__/|____/|_|\_\_| |_|\___/ \__,_|
+                      |_|                                 
+         --------------------------------------------------
+           SDMC NR3053 - DIEPKHOA EDITION
+           ImmortalWrt 25.12.1 Stable | Kernel 6.12.94
+         --------------------------------------------------  
+        EOF
+
+    - name: 6. Bat dau Bien dich
+      run: |
+        cp seed.config immortalwrt/.config
+        cd immortalwrt
+        mkdir -p .ccache
+        echo "CONFIG_CCACHE=y" >> .config
+        make defconfig
+        make download -j8
+        make -j$(nproc)
+
+    - name: 7. Up Firmware len muc Releases
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: "ubi-v1.${{ github.run_number }}"
+        name: "Firmware NR3053 UBI v1.${{ github.run_number }}"
+        files: |
+          immortalwrt/bin/targets/mediatek/filogic/*sysupgrade.bin
+          immortalwrt/bin/targets/mediatek/filogic/*factory.bin
+          immortalwrt/bin/targets/mediatek/filogic/*initramfs-kernel.bin
+
+    - name: 8. Tao file .nojekyll
+      run: |
+        touch immortalwrt/bin/.nojekyll
+
+    - name: 9. Xuat ban Kho APK sang gh-pages (Luu rieng tai thu muc ubi, khong ghi de kmod cu)
+      uses: peaceiris/actions-gh-pages@v4
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./immortalwrt/bin
+        destination_dir: ubi          # https://diepkhoa.github.io/sdmc-nr3053-repo/ubi/
+        publish_branch: gh-pages
+        keep_files: true              # GIU LAI KHO KMOD-old
