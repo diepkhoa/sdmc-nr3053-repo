@@ -39,8 +39,8 @@ jobs:
 
     - name: 5. Cau hinh phan cung va Hybrid Repo
       run: |
-        # 1. Copy file DTS vao cay ma nguon
-        cp mt7981b-sdmc-nr3053.dts immortalwrt/target/linux/mediatek/files-6.12/arch/arm64/boot/dts/mediatek/
+        # 1. Copy file DTS vao thu muc DTS chuan cua mediatek filogic
+        cp mt7981b-sdmc-nr3053.dts immortalwrt/target/linux/mediatek/dts/
         
         # 2. Chen cau hinh thiet bi Full-UBI vao filogic.mk
         cat << 'EOF' >> immortalwrt/target/linux/mediatek/image/filogic.mk
@@ -48,8 +48,8 @@ jobs:
           DEVICE_VENDOR := SDMC
           DEVICE_MODEL := NR3053 (UBI Layout)
           DEVICE_DTS := mt7981b-sdmc-nr3053
-          DEVICE_DTS_DIR := ../files-6.12/arch/arm64/boot/dts/mediatek
-          SUPPORTED_DEVICES := sdmc,nr3053
+          DEVICE_DTS_DIR := ../dts
+          SUPPORTED_DEVICES := viettel,nr3053 sdmc,nr3053
           UBINIZE_OPTS := -E 5
           BLOCKSIZE := 128k
           PAGESIZE := 2048
@@ -70,7 +70,6 @@ jobs:
         #!/bin/sh
         rm -f /etc/apk/repositories.d/*.bak
         
-        # Kho streaming rieng biet tai /ubi/
         cat << 'REPO_EOF' > /etc/apk/repositories.d/distfeeds.list
         https://diepkhoa.github.io/sdmc-nr3053-repo/ubi/targets/mediatek/filogic/packages/packages.adb
         https://downloads.immortalwrt.org/releases/25.12.1/targets/mediatek/filogic/packages/packages.adb
@@ -105,7 +104,7 @@ jobs:
                       |_|                                 
          --------------------------------------------------
            SDMC NR3053 - DIEPKHOA EDITION
-           ImmortalWrt 25.12.1 Stable | Kernel 6.12.94
+           ImmortalWrt 25.12.1 Stable | Kernel 6.12
          --------------------------------------------------  
         EOF
 
