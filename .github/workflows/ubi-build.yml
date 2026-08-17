@@ -56,7 +56,7 @@ jobs:
           IMAGE_SIZE := 245760k
           KERNEL_IN_UBI := 1
           IMAGES += factory.bin sysupgrade.bin
-          IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
+          IMAGE/factory.bin := append-ubi | check-size
           IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
           DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
         endef
@@ -96,8 +96,8 @@ jobs:
         mkdir -p immortalwrt/files/etc
         cat << 'EOF' > immortalwrt/files/etc/banner
           ____  _           ____  _  ___                 
-         |  _ \(_) ___ _ __|  _  \| |/ / |__   ___   __ _ 
-         | | | | |/ _ \ '_ \  | | | ' /| '_ \ / _ \ / _` |
+         |  _ \(_) ___ _ __|  _ \| |/ / |__   ___   __ _ 
+         | | | | |/ _ \ '_ \ | | | ' /| '_ \ / _ \ / _` |
          | |_| | |  __/ |_) | |_| | . \| | | | (_) | (_| |
          |____/|_|\___| .__/|____/|_|\_\_| |_|\___/ \__,_|
                       |_|                                 
@@ -115,7 +115,7 @@ jobs:
         echo "CONFIG_CCACHE=y" >> .config
         make defconfig
         make download -j8
-        make -j$(nproc) || make -j1 V=s
+        make -j$(nproc)
 
     - name: 7. Up Firmware len muc Releases
       uses: softprops/action-gh-release@v2
@@ -131,11 +131,11 @@ jobs:
       run: |
         touch immortalwrt/bin/.nojekyll
 
-    - name: 9. Xuat ban Kho APK sang gh-pages (Luu rieng tai thu muc ubi, khong ghi de kmod cu)
+    - name: 9. Xuat ban Kho APK sang gh-pages
       uses: peaceiris/actions-gh-pages@v4
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_dir: ./immortalwrt/bin
-        destination_dir: ubi          # https://diepkhoa.github.io/sdmc-nr3053-repo/ubi/
+        destination_dir: ubi
         publish_branch: gh-pages
-        keep_files: true              # GIU LAI KHO KMOD-old
+        keep_files: true
