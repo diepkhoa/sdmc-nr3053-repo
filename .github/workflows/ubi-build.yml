@@ -39,10 +39,10 @@ jobs:
 
     - name: 5. Cau hinh phan cung va Hybrid Repo
       run: |
-        # 1. Copy file DTS vao thu muc DTS chuan cua mediatek filogic
+        # 1. Copy file DTS vao thu muc chuan
         cp mt7981b-sdmc-nr3053.dts immortalwrt/target/linux/mediatek/dts/
         
-        # 2. Chen cau hinh thiet bi Full-UBI vao filogic.mk
+        # 2. Chen cau hinh thiet bi Full-UBI chuan vao filogic.mk
         cat << 'EOF' >> immortalwrt/target/linux/mediatek/image/filogic.mk
         define Device/sdmc_nr3053
           DEVICE_VENDOR := SDMC
@@ -54,10 +54,9 @@ jobs:
           BLOCKSIZE := 128k
           PAGESIZE := 2048
           IMAGE_SIZE := 245760k
-          KERNEL := kernel-bin | lzma | fit lzma $$(KDIR)/image-$$(DEVICE_DTS).dtb
-          KERNEL_INITRAMFS := kernel-bin | lzma | fit lzma $$(KDIR)/image-$$(DEVICE_DTS).dtb
+          KERNEL_IN_UBI := 1
           IMAGES += factory.bin sysupgrade.bin
-          IMAGE/factory.bin := append-ubi | check-size
+          IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
           IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
           DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
         endef
@@ -97,8 +96,8 @@ jobs:
         mkdir -p immortalwrt/files/etc
         cat << 'EOF' > immortalwrt/files/etc/banner
           ____  _           ____  _  ___                 
-         |  _ \(_) ___ _ __|  _ \| |/ / |__   ___   __ _ 
-         | | | | |/ _ \ '_ \ | | | ' /| '_ \ / _ \ / _` |
+         |  _ \(_) ___ _ __|  _  \| |/ / |__   ___   __ _ 
+         | | | | |/ _ \ '_ \  | | | ' /| '_ \ / _ \ / _` |
          | |_| | |  __/ |_) | |_| | . \| | | | (_) | (_| |
          |____/|_|\___| .__/|____/|_|\_\_| |_|\___/ \__,_|
                       |_|                                 
@@ -116,7 +115,7 @@ jobs:
         echo "CONFIG_CCACHE=y" >> .config
         make defconfig
         make download -j8
-        make -j$(nproc)
+        make -j$(nproc) || make -j1 V=s
 
     - name: 7. Up Firmware len muc Releases
       uses: softprops/action-gh-release@v2
