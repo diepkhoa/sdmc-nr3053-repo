@@ -1,7 +1,7 @@
 /dts-v1/;
 
 / {
-	compatible = "sdmc,nr3053", "mediatek,mt7981";
+	compatible = "viettel,nr3053", "sdmc,nr3053", "mediatek,mt7981";
 	interrupt-parent = <0x01>;
 	#address-cells = <0x02>;
 	#size-cells = <0x02>;
@@ -312,7 +312,6 @@
 						compatible = "linux,ubi";
 
 						volumes {
-
 							ubi-volume-fit {
 								volname = "fit";
 								phandle = <0x26>;
@@ -377,7 +376,6 @@
 
 			mdc-mdio-pins {
 				phandle = <0x33>;
-
 				mux {
 					function = "eth";
 					groups = "smi_mdc_mdio";
@@ -386,7 +384,6 @@
 
 			uart0-pins {
 				phandle = <0x34>;
-
 				mux {
 					function = "uart";
 					groups = "uart0";
@@ -395,12 +392,10 @@
 
 			wifi-dbdc-pins {
 				phandle = <0x1e>;
-
 				mux {
 					function = "eth";
 					groups = "wf0_mode1";
 				};
-
 				conf {
 					pins = "WF_HB1", "WF_HB2", "WF_HB3", "WF_HB4", "WF_HB0", "WF_HB0_B", "WF_HB5", "WF_HB6", "WF_HB7", "WF_HB8", "WF_HB9", "WF_HB10", "WF_TOP_CLK", "WF_TOP_DATA", "WF_XO_REQ", "WF_CBA_RESETB", "WF_DIG_RESETB";
 					drive-strength = <0x04>;
@@ -409,7 +404,6 @@
 
 			gbe-led0-pins {
 				phandle = <0x17>;
-
 				mux {
 					function = "led";
 					groups = "gbe_led0";
@@ -418,7 +412,6 @@
 
 			gbe-led1-pins {
 				phandle = <0x18>;
-
 				mux {
 					function = "led";
 					groups = "gbe_led1";
@@ -427,18 +420,15 @@
 
 			spi0-pins {
 				phandle = <0x07>;
-
 				mux {
 					function = "spi";
 					groups = "spi0", "spi0_wp_hold";
 				};
-
 				conf-pu {
 					pins = "SPI0_CS", "SPI0_HOLD", "SPI0_WP";
 					drive-strength = <0x08>;
 					bias-pull-up = <0x67>;
 				};
-
 				conf-pd {
 					pins = "SPI0_CLK", "SPI0_MOSI", "SPI0_MISO";
 					drive-strength = <0x08>;
@@ -526,37 +516,13 @@
 				#size-cells = <0x00>;
 				phandle = <0x39>;
 
+				/* VO HIEU HOA PHY NOI BO DE XOA CONG LAN 4 AO */
 				ethernet-phy@0 {
 					reg = <0x00>;
 					compatible = "ethernet-phy-id03a2.9461";
 					phy-mode = "gmii";
 					phy-is-integrated;
-					nvmem-cells = <0x16>;
-					nvmem-cell-names = "phy-cal-data";
-					phandle = <0x3a>;
-
-					leds {
-						#address-cells = <0x01>;
-						#size-cells = <0x00>;
-
-						int-gbe-phy-led0@0 {
-							reg = <0x00>;
-							function = "lan";
-							pinctrl-0 = <0x17>;
-							pinctrl-names = "default";
-							status = "disabled";
-							phandle = <0x3b>;
-						};
-
-						int-gbe-phy-led1@1 {
-							reg = <0x01>;
-							function = "lan";
-							pinctrl-0 = <0x18>;
-							pinctrl-names = "default";
-							status = "disabled";
-							phandle = <0x3c>;
-						};
-					};
+					status = "disabled";
 				};
 
 				switch@1f {
@@ -890,12 +856,12 @@
 	};
 
 	chosen {
-	bootargs = "console=ttyS0,115200n1 loglevel=8  earlycon=uart8250,mmio32,0x11002000";
-	u-boot,bootconf = "config-1#mt7981b-sdmc-nr3053";
-	u-boot,version = "2025.10-ImmortalWrt-r37678-ff1ea58da2";
-	rootdisk = <0x26>;
-	stdout-path = "serial0:115200n8";
-		};
+		bootargs = "console=ttyS0,115200n1 loglevel=8 earlycon=uart8250,mmio32,0x11002000";
+		u-boot,bootconf = "config-1#mt7981b-sdmc-nr3053";
+		u-boot,version = "2025.10-ImmortalWrt-r37678-ff1ea58da2";
+		rootdisk = <0x26>;
+		stdout-path = "serial0:115200n8";
+	};
 
 	memory@40000000 {
 		device_type = "memory";
@@ -982,10 +948,6 @@
 		wed = "/soc/wed@15010000";
 		eth = "/soc/ethernet@15100000";
 		mdio_bus = "/soc/ethernet@15100000/mdio-bus";
-		phy0 = "/soc/ethernet@15100000/mdio-bus/ethernet-phy@0";
-		int_gbe_phy = "/soc/ethernet@15100000/mdio-bus/ethernet-phy@0";
-		int_gbe_phy_led0 = "/soc/ethernet@15100000/mdio-bus/ethernet-phy@0/leds/int-gbe-phy-led0@0";
-		int_gbe_phy_led1 = "/soc/ethernet@15100000/mdio-bus/ethernet-phy@0/leds/int-gbe-phy-led1@1";
 		switch = "/soc/ethernet@15100000/mdio-bus/switch@1f";
 		gmac0 = "/soc/ethernet@15100000/mac@0";
 		wdma = "/soc/wdma@15104800";
