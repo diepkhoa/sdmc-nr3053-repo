@@ -1,107 +1,79 @@
-
-
 # ImmortalWrt cho SDMC NR3053 (MediaTek MT7981 / Filogic 820)
-**OS:** ImmortalWrt 25.12.1 Stable | Kernel 6.12  
-**Board:** SDMC NR3053 (Router Wi-Fi 6 Mesh Viettel / OEM)
+**Hệ điều hành:** ImmortalWrt 25.12.1 Stable | Nhân Linux Kernel 6.12.94  
+**Kiến trúc bộ nhớ:** Chuẩn Full-UBI FIT Image  
+**Thiết bị hỗ trợ:** SDMC NR3053 (Router Wi-Fi 6 Mesh Viettel / OEM)
 
 ---
 
-## 1. Gioi thieu ve 2 chuan Firmware trong Repository
+## 1. Giới thiệu tổng quan về Bản Firmware
 
-Repository nay cung cap 2 loai firmware khac nhau nham dam bao tinh tuong thich voi tung loai Bootloader (U-Boot) ma router cua ban dang su dung:
+Đây là bản firmware ImmortalWrt tùy biến dành riêng cho router SDMC NR3053 sử dụng SoC MediaTek Filogic 820 (MT7981B). 
 
-### A. Chuan Full-UBI / FIT Image (Khuyen dung - Hien dai nhat)
-* **Dac diem:** Su dung U-Boot Mod (co giao dien cuu ho Web Recovery tai 192.168.1.1). Kernel va Device Tree duoc dong goi chung vao Volume `fit` trong phan vung UBI.
-* **Uu diem:** Khong bi gioi han dung luong Kernel, ho tro quan ly Bad Block tren Flash NAND tot hon, co giao dien Web de cuu ho neu gap su co.
-* **Dinh dang file:** `*sysupgrade.bin` hoac `*factory.bin` (danh cho Full-UBI).
+Bản build được đóng gói theo kiến trúc **Full-UBI FIT Image** hiện đại nhất hiện nay trên OpenWrt. Toàn bộ nhân Linux Kernel và cây thiết bị (Device Tree) được gộp chung vào volume `fit`, giúp quản lý bộ nhớ Flash NAND động, tự động xử lý Bad Block và tương thích tuyệt đối với trình nạp U-Boot Web Recovery (192.168.1.1).
 
-### B. Chuan Legacy (Tach biet Kernel va RootFS rieng le)
-* **Dac diem:** Danh cho cac may van dang giu U-Boot goc hoac U-Boot SDK cu khong co Web Recovery. He thong chia tach roi 2 phan vung/volume: `kernel` (khoang 4MB) va `rootfs` (khoang 16MB).
-* **Dinh dang file:** Ban build danh rieng cho layout tach phan vung truyen thong.
+Bản build được tùy chỉnh driver đảm bảo tính năng Hardware Flow Offloading (tăng tốc luồng phần cứng với PPE), driver `mt76` được nạp sẵn và hoạt động ổn định. Người dùng có thể thoải mái cài đặt thêm các gói kmod package mà không gặp trở ngại.
 
 ---
 
-## 2. Huong dan kiem tra chuan U-Boot tren Router qua SSH
+## 2. Thông số phần cứng và Các tính năng nổi bật
 
-Truoc khi nap bat ky ban firmware nao, ban BAT BUOC phai kiem tra xem router hien tai dang chay theo chuan nao de tranh tinh trang bi treo bootloader (Hard/Soft Brick).
-
-Dang nhap vao router qua SSH va thuc hien cac lenh sau:
-
-### Buoc 1: Kiem tra cau truc Volume UBI
-Chay lenh:
-```bash
-ubinfo -a
-```
-
-**Doc ket qua:**
-* **Truong hop 1 - Router dung chuan Full-UBI:**
-  Trong danh sach hien thi, ban se thay Volume ID 0 (hoac mot Volume duy nhat cho he thong) co ten la **`fit`**, di kem voi `rootfs` va `rootfs_data`. Khong co Volume nao ten rieng la `kernel`.
-  -> **Ket luan:** Chon tai va nap ban **Firmware Full-UBI**.
-
-* **Truong hop 2 - Router dung chuan Tach biet (Legacy Split):**
-  Trong danh sach hien thi, ban se thay 2 Volume rieng biet:
-  * Volume co ten la **`kernel`** (Dung luong khoang 4.4 MiB).
-  * Volume co ten la **`rootfs`** (Dung luong khoang 16.2 MiB).
-  -> **Ket luan:** Chon tai va nap ban **Firmware Legacy**.
+* **Bộ vi xử lý (CPU):** MediaTek MT7981B Dual-Core ARM Cortex-A53 xung nhịp 1.3GHz, xử lý đa nhiệm mạnh mẽ.
+* **Bộ nhớ RAM:** Hỗ trợ đầy đủ 512MB RAM DDR3 tốc độ cao.
+* **Bộ nhớ Flash:** 256MB SPI-NAND được phân vùng theo chuẩn Full-UBI sạch sẽ.
+* **Mạng LAN/WAN:** 
+  * 1 cổng WAN 1Gbps + 3 cổng LAN 1Gbps (sử dụng chip Switch MT7531 hỗ trợ SerDes 2.5Gbps).
+  * Đã loại bỏ hoàn toàn cổng mạng ảo (internal PHY) để giao diện LuCI chỉ hiển thị đúng 3 cổng LAN vật lý.
+* **Mạng Không dây (Wi-Fi):**
+  * Wi-Fi 6 AX3000 (Băng tần 2.4GHz 574Mbps + Băng tần 5GHz 2402Mbps hỗ trợ độ rộng kênh 160MHz).
+  * Tự động nạp dữ liệu cân chỉnh sóng vô tuyến gốc (RF EEPROM Calibration) và địa chỉ MAC in trên tem từ phân vùng `Factory`.
+* **Phím bấm & Đèn báo:**
+  * Nút Reset (GPIO 1) và nút Mesh/WPS (GPIO 0) hoạt động chuẩn xác.
+  * Đèn hệ thống chuyển trạng thái thông minh: Đỏ khi khởi động/nâng cấp, Xanh khi hệ thống sẵn sàng.
+* **Tối ưu hệ thống:**
+  * Tối ưu hóa giao diện Web LuCI giúp phản hồi nhanh, giảm độ trễ.
+  * Đồng bộ thời gian tự động qua Cloudflare và Google NTP Server.
+  * Tích hợp sẵn WireGuard, Tailscale, SQM QoS chống nghẽn mạng.
 
 ---
 
-### Buoc 2: Kiem tra cau lenh Boot cua U-Boot (Tuy chon them)
-Chay lenh quet chuoi bien moi truong:
-```bash
-strings /dev/mtd1 | grep -iE "mtkboardboot|bootmenu_0|bootcmd"
-```
+## 3. Cơ chế giải quyết triệt để lỗi Kernel Hash (Vermagic)
 
-* **Neu ket qua tra ve:** `bootmenu_0=Startup system (Default)=mtkboardboot`
-  -> Router cua ban da duoc cai U-Boot Mod ho tro Full-UBI va co Web Recovery.
-* **Neu ket qua tra ve:** Cac lenh dang `ubi read ... kernel` hoac `nand read ... kernel`
-  -> Router cua ban dang dung co che doc Kernel tach roi.
+### Vấn đề thường gặp trên OpenWrt:
+Mỗi lần biên dịch bản firmware mới, mã băm nhân Linux Kernel (vermagic hash) sẽ thay đổi. Nếu người dùng cài thêm các gói mở rộng có chứa module nhân (kmod) từ kho mặc định trên mạng, hệ thống sẽ báo lỗi `kernel vermagic mismatch` và từ chối cài đặt.
+
+### Bản phát hành (Release) của tôi khắc phục hoàn toàn vấn đề này:
+Hệ thống CI/CD tự động xuất bản toàn bộ kho package tương thích theo từng bản build. Bạn có thể thoải mái cài đặt mọi gói package và kmod trên bản firmware này mà không bao giờ gặp lỗi xung đột nhân.
 
 ---
 
-## 3. Huong dan lua chon va Nap Firmware
+## 4. Hướng dẫn Nạp Firmware và Cứu hộ
 
-| Tinh trang U-Boot hien tai | Ban Firmware can tai | Cach nap an toan |
-| :--- | :--- | :--- |
-| U-Boot ho tro Full-UBI (Co Web Recovery) | `Firmware NR3053 Full-UBI (*.bin)` | Nap qua giao dien Web Recovery (192.168.1.1) hoac LuCI Sysupgrade |
-| U-Boot Legacy (Doc phan vung `kernel` rieng) | `Firmware NR3053 Legacy (*.bin)` | Nap qua giao dien LuCI cua ban ROM cu hoac SSH `sysupgrade` |
+### Cách 1: Nạp qua giao diện U-Boot Web Recovery (Khuyên dùng nhất)
+Phương pháp này thực hiện nạp độc lập từ bộ nhớ RAM, giúp định dạng lại phân vùng Flash sạch sẽ 100%:
 
-[Luu y quan trong]: Neu ban nap nham ban Firmware Full-UBI vao U-Boot Legacy (hoac nguoc lai), router se khong the tim thay Kernel de khoi dong va se bi dung o man hinh boot.
-
----
-
-## 4. Kho goi phan mem (Kmod / APK Repository)
-
-Repository nay da tich hop he thong stream package tu dong qua GitHub Pages de phong tranh loi khong khop Kernel Hash (vermagic):
-
-### A. Danh cho Router chay chuan Full-UBI moi:
-He thong duoc cau hinh tu dong tro den kho luu tru rieng tai:
-```text
-https://diepkhoa.github.io/sdmc-nr3053-repo/ubi/targets/mediatek/filogic/packages/packages.adb
-```
-
-### B. Danh cho Router chay chuan Legacy cu:
-Cac router chay ban firmware cu van tiep tuc su dung kho kmod truyen thong ma khong bi anh huong:
-```text
-https://diepkhoa.github.io/sdmc-nr3053-repo/targets/mediatek/filogic/packages/packages.adb
-```
-
----
-
-## 5. Huong dan truy cap U-Boot Web Recovery (Doi voi ban Full-UBI)
-
-Khi can cuu ho hoac nang cap firmware moi:
-1. Rut nguon dien khoi router.
-2. Dung que tam nhan va giu nut Reset, dong thoi cam lai day nguon.
-3. Giu nut Reset trong khoang tu 5 den 8 giay cho den khi den bao trang thai nhap nhay thi tha tay.
-4. Dat IP tinh tren may tinh:
+1. Rút dây nguồn khỏi router.
+2. Dùng que tăm nhấn giữ nút **Reset**, đồng thời cắm lại dây nguồn.
+3. Giữ nút Reset trong khoảng **5 đến 8 giây** cho đến khi đèn báo trạng thái nhấp nháy thì thả tay.
+4. Đặt IP tĩnh trên cổng mạng LAN của máy tính:
    * IP Address: `192.168.1.2`
    * Subnet Mask: `255.255.255.0`
-   * Default Gateway: `192.168.1.1`
-5. Mo trinh duyet web va truy cap dia chi: `http://192.168.1.1` de vao giao dien Recovery Mode WEBUI.
+   * Gateway: `192.168.1.1`
+5. Mở trình duyệt web truy cập địa chỉ: `http://192.168.1.1` để vào giao diện Recovery Mode WEBUI.
+6. Tại mục **Firmware update**, chọn file `*factory.bin` (hoặc `*sysupgrade.bin`) và bấm **Upload**.
+7. Chờ router tự động nạp Flash và khởi động lại trong 1-2 phút.
 
 ---
 
-## 6. Canh bao an toan
-* Khong bao gio ghi de hoac xoa phan vung `Factory` (`mtd2`). Day la noi luu tru dia chi MAC va thong so can chinh song Wi-Fi goc cua thiet bi.
-* Luon sao luu toan bo cac phan vung MTD truoc khi thuc hien cac thao tac can thiep vao Bootloader.
+### Cách 2: Nâng cấp trực tiếp qua giao diện Web LuCI
+Nếu router của bạn đã đang chạy bản ImmortalWrt của repo này và muốn cập nhật bản build mới:
+
+1. Đăng nhập vào giao diện LuCI: `http://192.168.1.1`.
+2. Vào mục: **System** -> **Backup / Flash Firmware**.
+3. Tại mục **Flash new firmware image**, chọn file `*sysupgrade.bin` và bấm **Upload**.
+4. Xác nhận tiếp tục và chờ router khởi động lại.
+
+---
+
+## 5. Cảnh báo an toàn
+* **Tuyệt đối không ghi đè phân vùng `Factory` (`mtd2`):** Đây là phân vùng duy nhất chứa địa chỉ MAC vật lý và thông số cân chỉnh công suất sóng Wi-Fi độc quyền của từng chiếc router.
+* Luôn lưu trữ một bản sao lưu (backup) của phân vùng `Factory` trên máy tính trước khi thực hiện bất kỳ thao tác can thiệp bootloader nào.
