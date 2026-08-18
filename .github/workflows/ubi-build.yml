@@ -39,19 +39,16 @@ jobs:
 
     - name: 5. Cau hinh phan cung va Hybrid Repo
       run: |
-        # 1. Copy file DTS vao ca 2 thu muc de dam bao khong bao gio lech duong dan
-        mkdir -p immortalwrt/target/linux/mediatek/dts/
-        mkdir -p immortalwrt/target/linux/mediatek/files-6.12/arch/arm64/boot/dts/mediatek/
+        # 1. Copy file DTS vao thu muc dts chuan cua he thong
         cp mt7981b-sdmc-nr3053.dts immortalwrt/target/linux/mediatek/dts/
-        cp mt7981b-sdmc-nr3053.dts immortalwrt/target/linux/mediatek/files-6.12/arch/arm64/boot/dts/mediatek/
         
-        # 2. Chen cau hinh thiet bi vao filogic.mk
+        # 2. Chen cau hinh thiet bi vao filogic.mk (Dung DEVICE_DTS_DIR := ../dts)
         cat << 'EOF' >> immortalwrt/target/linux/mediatek/image/filogic.mk
         define Device/sdmc_nr3053
           DEVICE_VENDOR := SDMC
           DEVICE_MODEL := NR3053 (UBI Layout)
           DEVICE_DTS := mt7981b-sdmc-nr3053
-          DEVICE_DTS_DIR := ../files-6.12/arch/arm64/boot/dts/mediatek
+          DEVICE_DTS_DIR := ../dts
           SUPPORTED_DEVICES := viettel,nr3053 sdmc,nr3053
           UBINIZE_OPTS := -E 5
           BLOCKSIZE := 128k
