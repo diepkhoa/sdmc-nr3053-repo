@@ -135,6 +135,8 @@ jobs:
     steps:
       - name: 1. Tai nguyen lieu (DTS, Config)
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: 2. Giai phong dung luong va Cai dat cong cu
         run: |
@@ -319,26 +321,27 @@ jobs:
           echo "::add-mask::${AUTH_B64}"
           GIT_AUTH_ARG="http.https://github.com/.extraheader=AUTHORIZATION: basic ${AUTH_B64}"
 
-          rm -rf kmod-pages
-          REMOTE_GH_PAGES=$(git -c "${GIT_AUTH_ARG}" ls-remote --heads "${REPO_URL}" gh-pages)
+          KMOD_WORK_DIR="/tmp/kmod-pages"
+          rm -rf "${KMOD_WORK_DIR}"
+          REMOTE_GH_PAGES=$(git -C /tmp -c http.https://github.com/.extraheader= -c "${GIT_AUTH_ARG}" ls-remote --heads "${REPO_URL}" gh-pages)
           if [ -n "${REMOTE_GH_PAGES}" ]; then
             echo "Cloning existing gh-pages snapshot from ${KMOD_REPO_OWNER}/${KMOD_REPO_NAME}..."
-            git -c "${GIT_AUTH_ARG}" clone --depth 1 --branch gh-pages "${REPO_URL}" kmod-pages
+            git -C /tmp -c http.https://github.com/.extraheader= -c "${GIT_AUTH_ARG}" clone --depth 1 --branch gh-pages "${REPO_URL}" "${KMOD_WORK_DIR}"
           else
             echo "Initializing new gh-pages branch for ${KMOD_REPO_OWNER}/${KMOD_REPO_NAME}..."
-            mkdir -p kmod-pages
-            git -C kmod-pages init
-            git -C kmod-pages remote add origin "${REPO_URL}"
+            mkdir -p "${KMOD_WORK_DIR}"
+            git -C "${KMOD_WORK_DIR}" init
+            git -C "${KMOD_WORK_DIR}" remote add origin "${REPO_URL}"
           fi
 
-          TARGET_DIR="kmod-pages/releases/${IM_VERSION}/targets/mediatek/filogic/packages"
+          TARGET_DIR="${KMOD_WORK_DIR}/releases/${IM_VERSION}/targets/mediatek/filogic/packages"
           rm -rf "${TARGET_DIR}"
           mkdir -p "${TARGET_DIR}"
           cp -a ./immortalwrt/bin/targets/mediatek/filogic/packages/. "${TARGET_DIR}/"
-          touch kmod-pages/.nojekyll
+          touch "${KMOD_WORK_DIR}/.nojekyll"
 
           # Luu cuon chieu: chi xoa cac ban cu nhat neu tong dung luong vuot KMOD_MAX_SIZE_MB (mac dinh 850MB < 1GB Pages)
-          cd kmod-pages
+          cd "${KMOD_WORK_DIR}"
           TOTAL_MB=$(du -sm releases | awk '{print $1}')
           echo "Kmod repo size before pruning: ${TOTAL_MB}MB (limit: ${KMOD_MAX_SIZE_MB}MB)"
 
@@ -367,4 +370,4 @@ jobs:
           git add -A
           git commit -m "Deploy kmod repo for ImmortalWrt v${IM_VERSION} (${TOTAL_MB}MB/${KMOD_MAX_SIZE_MB}MB)"
           git branch -M gh-pages-snapshot gh-pages
-          git -c "${GIT_AUTH_ARG}" push --force origin gh-pages
+          git -c http.https://github.com/.extraheader= -c "${GIT_AUTH_ARG}" push --force origin gh-pages
