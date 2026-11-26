@@ -1,79 +1,38 @@
-# ImmortalWrt cho SDMC NR3053 (MediaTek MT7981 / Filogic 820)
-**Hệ điều hành:** ImmortalWrt 25.12.1 Stable | Nhân Linux Kernel 6.12.94  
-**Kiến trúc bộ nhớ:** Chuẩn Full-UBI FIT Image  
-**Thiết bị hỗ trợ:** SDMC NR3053 (Router Wi-Fi 6 Mesh Viettel / OEM)
+# ImmortalWrt cho SDMC NR3053 / Viettel NR3053
+
+Firmware **ImmortalWrt** (nhánh ổn định `25.12.x`) dành cho router **SDMC NR3053 / Viettel NR3053**.
+
+> ⭐ **Theo dõi repository để cập nhật bản build mới!**
+> Hãy bấm **Star** và **Watch** (chọn *Custom → Releases*) ở góc trên để nhận thông báo tự động mỗi khi có bản phát hành firmware mới nhất.
 
 ---
 
-## 1. Giới thiệu tổng quan về Bản Firmware
+## Điểm nổi bật
 
-Đây là bản firmware ImmortalWrt tùy biến dành riêng cho router SDMC NR3053 sử dụng SoC MediaTek Filogic 820 (MT7981B). 
-
-Bản build được đóng gói theo kiến trúc **Full-UBI FIT Image** hiện đại nhất hiện nay trên OpenWrt. Toàn bộ nhân Linux Kernel và cây thiết bị (Device Tree) được gộp chung vào volume `fit`, giúp quản lý bộ nhớ Flash NAND động, tự động xử lý Bad Block và tương thích tuyệt đối với trình nạp U-Boot Web Recovery (192.168.1.1).
-
-Bản build được tùy chỉnh driver đảm bảo tính năng Hardware Flow Offloading (tăng tốc luồng phần cứng với PPE), driver `mt76` được nạp sẵn và hoạt động ổn định. Người dùng có thể thoải mái cài đặt thêm các gói kmod package mà không gặp trở ngại.
-
----
-
-## 2. Thông số phần cứng và Các tính năng nổi bật
-
-* **Bộ vi xử lý (CPU):** MediaTek MT7981B Dual-Core ARM Cortex-A53 xung nhịp 1.3GHz, xử lý đa nhiệm mạnh mẽ.
-* **Bộ nhớ RAM:** Hỗ trợ đầy đủ 512MB RAM DDR3 tốc độ cao.
-* **Bộ nhớ Flash:** 256MB SPI-NAND được phân vùng theo chuẩn Full-UBI sạch sẽ.
-* **Mạng LAN/WAN:** 
-  * 1 cổng WAN 1Gbps + 3 cổng LAN 1Gbps (sử dụng chip Switch MT7531 hỗ trợ SerDes 2.5Gbps).
-  * Đã loại bỏ hoàn toàn cổng mạng ảo (internal PHY) để giao diện LuCI chỉ hiển thị đúng 3 cổng LAN vật lý.
-* **Mạng Không dây (Wi-Fi):**
-  * Wi-Fi 6 AX3000 (Băng tần 2.4GHz 574Mbps + Băng tần 5GHz 2402Mbps hỗ trợ độ rộng kênh 160MHz).
-  * Tự động nạp dữ liệu cân chỉnh sóng vô tuyến gốc (RF EEPROM Calibration) và địa chỉ MAC in trên tem từ phân vùng `Factory`.
-* **Phím bấm & Đèn báo:**
-  * Nút Reset (GPIO 1) và nút Mesh/WPS (GPIO 0) hoạt động chuẩn xác.
-  * Đèn hệ thống chuyển trạng thái thông minh: Đỏ khi khởi động/nâng cấp, Xanh khi hệ thống sẵn sàng.
-* **Tối ưu hệ thống:**
-  * Tối ưu hóa giao diện Web LuCI giúp phản hồi nhanh, giảm độ trễ.
-  * Đồng bộ thời gian tự động qua Cloudflare và Google NTP Server.
-  * Tích hợp sẵn WireGuard, Tailscale, SQM QoS chống nghẽn mạng.
+- **Gọn nhẹ, không cá nhân hóa**: Giữ nguyên bản trải nghiệm ImmortalWrt thuần khiết, không cài sẵn phần mềm bên thứ ba hay giao diện thừa — bạn toàn quyền tự cài những gì mình cần.
+- **Cài gói thoải mái, không lo lỗi kernel**: Mỗi bản build đều đi kèm kho gói (`kmod` & packages) đồng bộ riêng theo đúng phiên bản firmware. Bạn có thể cài thêm mọi ứng dụng mở rộng (AdGuard Home, WireGuard, SQM, driver USB...) trực tiếp trên giao diện web LuCI hoặc qua lệnh `apk` mà không gặp lỗi xung đột.
+- **Phần cứng hoạt động chuẩn xác**:
+  - Nhận đúng **1 cổng WAN + 3 cổng LAN** vật lý trên giao diện quản lý.
+  - Wi-Fi 6 băng tần kép (2.4GHz & 5GHz) ổn định, giữ nguyên địa chỉ MAC và thông số gốc của thiết bị.
+- **Tự động cập nhật hàng tuần**: Hệ thống tự động kiểm tra và biên dịch khi ImmortalWrt phát hành bản vá mới trên nhánh `25.12.x`.
 
 ---
 
-## 3. Cơ chế giải quyết triệt để lỗi Kernel Hash (Vermagic)
+## Hướng dẫn cài đặt & nâng cấp
 
-### Vấn đề thường gặp trên OpenWrt:
-Mỗi lần biên dịch bản firmware mới, mã băm nhân Linux Kernel (vermagic hash) sẽ thay đổi. Nếu người dùng cài thêm các gói mở rộng có chứa module nhân (kmod) từ kho mặc định trên mạng, hệ thống sẽ báo lỗi `kernel vermagic mismatch` và từ chối cài đặt.
+### Cách 1: Cài lần đầu qua U-Boot Web Recovery
+1. Rút nguồn router, dùng que chọc giữ nút **Reset** rồi cắm lại nguồn trong khoảng **5–8 giây** cho đến khi đèn nhấp nháy thì thả tay.
+2. Nối dây mạng từ máy tính vào cổng LAN của router và đặt IP tĩnh:
+   - IP: `192.168.1.2` | Subnet Mask: `255.255.255.0` | Gateway: `192.168.1.1`
+3. Mở trình duyệt truy cập `http://192.168.1.1`, chọn file `*factory.bin` tải từ mục **Releases** và nhấn **Upload**.
+4. Chờ 1–2 phút để router nạp firmware và tự khởi động lại.
 
-### Bản phát hành (Release) của tôi khắc phục hoàn toàn vấn đề này:
-Hệ thống CI/CD tự động xuất bản toàn bộ kho package tương thích theo từng bản build. Bạn có thể thoải mái cài đặt mọi gói package và kmod trên bản firmware này mà không bao giờ gặp lỗi xung đột nhân.
-
----
-
-## 4. Hướng dẫn Nạp Firmware và Cứu hộ
-
-### Cách 1: Nạp qua giao diện U-Boot Web Recovery (Khuyên dùng nhất)
-Phương pháp này thực hiện nạp độc lập từ bộ nhớ RAM, giúp định dạng lại phân vùng Flash sạch sẽ 100%:
-
-1. Rút dây nguồn khỏi router.
-2. Dùng que tăm nhấn giữ nút **Reset**, đồng thời cắm lại dây nguồn.
-3. Giữ nút Reset trong khoảng **5 đến 8 giây** cho đến khi đèn báo trạng thái nhấp nháy thì thả tay.
-4. Đặt IP tĩnh trên cổng mạng LAN của máy tính:
-   * IP Address: `192.168.1.2`
-   * Subnet Mask: `255.255.255.0`
-   * Gateway: `192.168.1.1`
-5. Mở trình duyệt web truy cập địa chỉ: `http://192.168.1.1` để vào giao diện Recovery Mode WEBUI.
-6. Tại mục **Firmware update**, chọn file `*factory.bin` (hoặc `*sysupgrade.bin`) và bấm **Upload**.
-7. Chờ router tự động nạp Flash và khởi động lại trong 1-2 phút.
+### Cách 2: Nâng cấp trực tiếp từ LuCI
+1. Truy cập `http://192.168.1.1` → **System → Backup / Flash Firmware**.
+2. Tại mục **Flash new firmware image**, chọn file `*sysupgrade.bin` mới nhất và tiến hành nâng cấp.
 
 ---
 
-### Cách 2: Nâng cấp trực tiếp qua giao diện Web LuCI
-Nếu router của bạn đã đang chạy bản ImmortalWrt của repo này và muốn cập nhật bản build mới:
-
-1. Đăng nhập vào giao diện LuCI: `http://192.168.1.1`.
-2. Vào mục: **System** -> **Backup / Flash Firmware**.
-3. Tại mục **Flash new firmware image**, chọn file `*sysupgrade.bin` và bấm **Upload**.
-4. Xác nhận tiếp tục và chờ router khởi động lại.
-
----
-
-## 5. Cảnh báo an toàn
-* **Tuyệt đối không ghi đè phân vùng `Factory` (`mtd2`):** Đây là phân vùng duy nhất chứa địa chỉ MAC vật lý và thông số cân chỉnh công suất sóng Wi-Fi độc quyền của từng chiếc router.
-* Luôn lưu trữ một bản sao lưu (backup) của phân vùng `Factory` trên máy tính trước khi thực hiện bất kỳ thao tác can thiệp bootloader nào.
+## Lưu ý an toàn
+- Luôn sao lưu cấu hình và giữ nguyên phân vùng `Factory` gốc của router (chứa địa chỉ MAC và thông số sóng Wi-Fi riêng của từng máy).
+- Nếu bạn gặp lỗi hoặc muốn góp ý, hãy mở **Issue** trên repo này nhé!

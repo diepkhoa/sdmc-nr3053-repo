@@ -5,6 +5,7 @@ env:
   KMOD_REPO_OWNER: "diepkhoa"
   KMOD_REPO_NAME: "sdmc-nr3053-kmods"
   KMOD_PAGES_BASE_URL: "https://diepkhoa.github.io/sdmc-nr3053-kmods"
+  KMOD_MAX_SIZE_MB: "850"
 
 on:
   schedule:
@@ -261,25 +262,73 @@ jobs:
             immortalwrt/bin/targets/mediatek/filogic/*initramfs-kernel.bin
           retention-days: 7
 
-      - name: 8. Kiem tra an toan kho Kmod va tao .nojekyll
+      - name: 8. Kiem tra an toan kho Kmod
         if: github.ref == 'refs/heads/main'
         run: |
-          test -n "${IM_VERSION}" || { echo "IM_VERSION is empty!"; exit 1; }
-          test -f "./immortalwrt/bin/targets/mediatek/filogic/packages/packages.adb" || { echo "packages.adb missing!"; exit 1; }
-          touch ./immortalwrt/bin/targets/mediatek/filogic/packages/.nojekyll
+          set -euo pipefail
+          test -n "${IM_VERSION}" || { echo "::error::IM_VERSION is empty!"; exit 1; }
+          [[ "${IM_VERSION}" != *"/"* && "${IM_VERSION}" != *".."* ]] || { echo "::error::Invalid IM_VERSION: ${IM_VERSION}"; exit 1; }
+          test -f "./immortalwrt/bin/targets/mediatek/filogic/packages/packages.adb" || { echo "::error::packages.adb missing!"; exit 1; }
 
-      - name: 9. Publish Kmod APK Repo to External GitHub Pages
+      - name: 9. Publish Kmod APK Repo to External GitHub Pages (Rolling Retention)
         if: github.ref == 'refs/heads/main'
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          personal_token: ${{ secrets.KMOD_DEPLOY_TOKEN }}
-          external_repository: ${{ env.KMOD_REPO_OWNER }}/${{ env.KMOD_REPO_NAME }}
-          publish_branch: gh-pages
-          publish_dir: ./immortalwrt/bin/targets/mediatek/filogic/packages
-          destination_dir: releases/${{ env.IM_VERSION }}/targets/mediatek/filogic/packages
-          keep_files: false
-          force_orphan: false
-          enable_jekyll: false
-          user_name: 'github-actions[bot]'
-          user_email: 'github-actions[bot]@users.noreply.github.com'
-          commit_message: 'Deploy kmod repo for ImmortalWrt v${{ env.IM_VERSION }}'
+        env:
+          KMOD_DEPLOY_TOKEN: ${{ secrets.KMOD_DEPLOY_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "${KMOD_DEPLOY_TOKEN}" || { echo "::error::Secret KMOD_DEPLOY_TOKEN is not set!"; exit 1; }
+
+          REPO_URL="https://github.com/${KMOD_REPO_OWNER}/${KMOD_REPO_NAME}.git"
+          AUTH_B64=$(printf 'x-access-token:%s' "${KMOD_DEPLOY_TOKEN}" | base64 -w0)
+          echo "::add-mask::${AUTH_B64}"
+          GIT_AUTH_ARG="http.https://github.com/.extraheader=AUTHORIZATION: basic ${AUTH_B64}"
+
+          rm -rf kmod-pages
+          REMOTE_GH_PAGES=$(git -c "${GIT_AUTH_ARG}" ls-remote --heads "${REPO_URL}" gh-pages)
+          if [ -n "${REMOTE_GH_PAGES}" ]; then
+            echo "Cloning existing gh-pages snapshot from ${KMOD_REPO_OWNER}/${KMOD_REPO_NAME}..."
+            git -c "${GIT_AUTH_ARG}" clone --depth 1 --branch gh-pages "${REPO_URL}" kmod-pages
+          else
+            echo "Initializing new gh-pages branch for ${KMOD_REPO_OWNER}/${KMOD_REPO_NAME}..."
+            mkdir -p kmod-pages
+            git -C kmod-pages init
+            git -C kmod-pages remote add origin "${REPO_URL}"
+          fi
+
+          TARGET_DIR="kmod-pages/releases/${IM_VERSION}/targets/mediatek/filogic/packages"
+          rm -rf "${TARGET_DIR}"
+          mkdir -p "${TARGET_DIR}"
+          cp -a ./immortalwrt/bin/targets/mediatek/filogic/packages/. "${TARGET_DIR}/"
+          touch kmod-pages/.nojekyll
+
+          # Luu cuon chieu: chi xoa cac ban cu nhat neu tong dung luong vuot KMOD_MAX_SIZE_MB (mac dinh 850MB < 1GB Pages)
+          cd kmod-pages
+          TOTAL_MB=$(du -sm releases | awk '{print $1}')
+          echo "Kmod repo size before pruning: ${TOTAL_MB}MB (limit: ${KMOD_MAX_SIZE_MB}MB)"
+
+          while [ "${TOTAL_MB}" -gt "${KMOD_MAX_SIZE_MB}" ]; do
+            OLDEST_VER=$(find releases -mindepth 1 -maxdepth 1 -type d -printf '%f\n' \
+              | sort -V \
+              | grep -vxF "${IM_VERSION}" \
+              | head -n 1 || true)
+            if [ -z "${OLDEST_VER}" ]; then
+              echo "::warning::Cannot prune further without deleting current version ${IM_VERSION} (size=${TOTAL_MB}MB)"
+              break
+            fi
+            echo "Pruning oldest kmod release: ${OLDEST_VER} (total ${TOTAL_MB}MB > ${KMOD_MAX_SIZE_MB}MB)"
+            rm -rf "releases/${OLDEST_VER}"
+            TOTAL_MB=$(du -sm releases | awk '{print $1}')
+          done
+
+          echo "=== Retained kmod releases (total: ${TOTAL_MB}MB / ${KMOD_MAX_SIZE_MB}MB) ==="
+          du -sh releases/* releases
+
+          # Dong goi 1 orphan snapshot commit duy nhat de chong phinh lich su .git nhung van giu nguyen cac ban trong releases/
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git checkout --orphan gh-pages-snapshot
+          git rm -rf --cached . >/dev/null 2>&1 || true
+          git add -A
+          git commit -m "Deploy kmod repo for ImmortalWrt v${IM_VERSION} (${TOTAL_MB}MB/${KMOD_MAX_SIZE_MB}MB)"
+          git branch -M gh-pages-snapshot gh-pages
+          git -c "${GIT_AUTH_ARG}" push --force origin gh-pages
