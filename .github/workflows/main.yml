@@ -1,145 +1,285 @@
-name: Build ImmortalWrt NR3053 (25.12.1)
+name: Build ImmortalWrt NR3053 (Auto 25.12.x)
 
-# Chi chay khi bam nut "Run workflow" thu cong
+env:
+  IMMORTALWRT_BRANCH_PREFIX: "25.12"
+  KMOD_REPO_OWNER: "diepkhoa"
+  KMOD_REPO_NAME: "sdmc-nr3053-kmods"
+  KMOD_PAGES_BASE_URL: "https://diepkhoa.github.io/sdmc-nr3053-kmods"
+
 on:
+  schedule:
+    # Chay tu dong hang tuan vao Thu Hai luc 02:00 UTC (09:00 gio Viet Nam)
+    - cron: '0 2 * * 1'
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Phien ban ImmortalWrt (vd: 25.12.2). De trong de tu tim ban 25.12.x moi nhat'
+        required: false
+        default: ''
+        type: string
+      force_rebuild:
+        description: 'Ep build lai du da co Release tren repo'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
-  build:
-    name: Build Firmware
+  check-version:
+    name: Check ImmortalWrt Version
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+      tag: ${{ steps.check.outputs.tag }}
+      should_build: ${{ steps.check.outputs.should_build }}
 
     steps:
-    - name: 1. Tai nguyen lieu (DTS, Config)
-      uses: actions/checkout@v4
+      - name: Determine target version and check Release status
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_VERSION: ${{ inputs.version }}
+          FORCE_REBUILD: ${{ inputs.force_rebuild }}
+        run: |
+          set -euo pipefail
 
-    - name: 2. Giai phong dung luong va Cai dat cong cu
-      run: |
-        sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/share/swift
-        sudo apt-get update
-        sudo apt-get install -y build-essential clang flex bison g++ gawk gcc-multilib g++-multilib gettext git libncurses5-dev libssl-dev python3-distutils rsync unzip zlib1g-dev file wget time ccache
+          CLEAN_INPUT=$(printf '%s' "${INPUT_VERSION}" | tr -d '[:space:]' | sed 's/^v//')
 
-    - name: 3. Tai ma nguon ImmortalWrt Stable 25.12.1
-      run: |
-        git clone -b v25.12.1 https://github.com/immortalwrt/immortalwrt.git immortalwrt
-        cd immortalwrt
-        ./scripts/feeds update -a
-        ./scripts/feeds install -a
-        
-    - name: 4. Khoi tao Bo nho dem CCache
-      uses: actions/cache@v5.1.0
-      with:
-        path: |
-          immortalwrt/.ccache
-          immortalwrt/dl
-          immortalwrt/staging_dir/host
-          immortalwrt/staging_dir/toolchain-*
-        key: ccache-immortalwrt-${{ github.run_number }}
-        restore-keys: |
-          ccache-immortalwrt-
+          if [ -n "${CLEAN_INPUT}" ]; then
+            VERSION="${CLEAN_INPUT}"
+            TAG="v${VERSION}"
+            echo "Using manually specified version: ${VERSION} (${TAG})"
+          else
+            REMOTE_TAGS=$(git ls-remote --tags --refs https://github.com/immortalwrt/immortalwrt.git "v${IMMORTALWRT_BRANCH_PREFIX}.*")
+            LATEST_TAG=$(printf '%s\n' "${REMOTE_TAGS}" \
+              | awk '{print $2}' \
+              | sed 's|refs/tags/||' \
+              | grep -E "^v${IMMORTALWRT_BRANCH_PREFIX//./\\.}\.[0-9]+$" \
+              | sort -V \
+              | tail -n 1 || true)
 
-    - name: 5. Cau hinh phan cung va Hybrid Repo
-      run: |
-        # Copy file DTS
-        cp mt7981b-sdmc-nr3053.dts immortalwrt/target/linux/mediatek/files-6.12/arch/arm64/boot/dts/mediatek/
-        
-        # Chen cau hinh thiet bi vao filogic.mk
-        cat << 'EOF' >> immortalwrt/target/linux/mediatek/image/filogic.mk
-        define Device/sdmc_nr3053
-          DEVICE_VENDOR := SDMC
-          DEVICE_MODEL := NR3053 - DiepKhoa Edition
-          DEVICE_DTS := mt7981b-sdmc-nr3053
-          DEVICE_DTS_DIR := ../files-6.12/arch/arm64/boot/dts/mediatek
-          SUPPORTED_DEVICES := sdmc,nr3053
-          UBINIZE_OPTS := -E 5
-          BLOCKSIZE := 128k
-          PAGESIZE := 2048
-          IMAGE_SIZE := 245760k
-          IMAGES += factory.bin
-          IMAGE/factory.bin := append-ubi | check-size
-          IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
-          DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
-        endef
-        TARGET_DEVICES += sdmc_nr3053
-        EOF
+            if [ -z "${LATEST_TAG}" ]; then
+              echo "::error::Khong tim thay tag on dinh nao khop voi v${IMMORTALWRT_BRANCH_PREFIX}.x"
+              exit 1
+            fi
 
-        # DUNG KICH BAN FIRST-BOOT DE EP HE THONG NHAN REPO CHUAN
-        mkdir -p immortalwrt/files/etc/uci-defaults
-        cat << 'EOF' > immortalwrt/files/etc/uci-defaults/zz-custom-repos
-        #!/bin/sh
-        # Xoa bo cac file backup rac do he thong tu tao ra
-        rm -f /etc/apk/repositories.d/*.bak
-        
-        # Ghi de vinh vien danh sach kho chuan (Hybrid Repo)
-        cat << 'REPO_EOF' > /etc/apk/repositories.d/distfeeds.list
-        https://diepkhoa.github.io/sdmc-nr3053-repo/targets/mediatek/filogic/packages/packages.adb
-        https://downloads.immortalwrt.org/releases/25.12.1/targets/mediatek/filogic/packages/packages.adb
-        https://downloads.immortalwrt.org/releases/25.12.1/packages/aarch64_cortex-a53/base/packages.adb
-        https://downloads.immortalwrt.org/releases/25.12.1/packages/aarch64_cortex-a53/luci/packages.adb
-        https://downloads.immortalwrt.org/releases/25.12.1/packages/aarch64_cortex-a53/packages/packages.adb
-        https://downloads.immortalwrt.org/releases/25.12.1/packages/aarch64_cortex-a53/routing/packages.adb
-        https://downloads.immortalwrt.org/releases/25.12.1/packages/aarch64_cortex-a53/telephony/packages.adb
-        REPO_EOF
+            TAG="${LATEST_TAG}"
+            VERSION="${TAG#v}"
+            echo "Latest stable upstream tag: ${TAG} (version ${VERSION})"
+          fi
 
-        uci delete system.ntp.server
-        uci add_list system.ntp.server='162.159.200.1'
-        uci add_list system.ntp.server='216.239.35.0'
-        uci add_list system.ntp.server='0.openwrt.pool.ntp.org'
-        uci commit system
-        
-        # TOI UU HOA TOC DO GIAO DIEN WEB LUCI
-        uci set uhttpd.main.max_requests='100'
-        uci set uhttpd.main.tcp_keepalive='1'
-        uci commit uhttpd
-        # Thoat de he thong tu dong xoa kich ban nay sau khi chay xong
-        exit 0
-        EOF
-        # Cap quyen thuc thi cho kich ban
-        chmod +x immortalwrt/files/etc/uci-defaults/zz-custom-repos
-        # TAO BANNER CHO SSH
-        mkdir -p immortalwrt/files/etc
-        cat << 'EOF' > immortalwrt/files/etc/banner
-          ____  _           ____  _  ___                 
-         |  _ \(_) ___ _ __|  _ \| |/ / |__   ___   __ _ 
-         | | | | |/ _ \ '_ \ | | | ' /| '_ \ / _ \ / _` |
-         | |_| | |  __/ |_) | |_| | . \| | | | (_) | (_| |
-         |____/|_|\___| .__/|____/|_|\_\_| |_|\___/ \__,_|
-                      |_|                                 
-         --------------------------------------------------
-           SDMC NR3053 - DIEPKHOA EDITION
-           ImmortalWrt 25.12.1 Stable | Kernel 6.12.94
-           BE FREE and UNAFAIRD
-         --------------------------------------------------  
-         
-        EOF
+          RELEASE_EXISTS="false"
+          if gh release view "${TAG}" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            RELEASE_EXISTS="true"
+          fi
 
-    - name: 6. Bat dau Bien dich (Dung CCache)
-      run: |
-        cp seed.config immortalwrt/.config
-        cd immortalwrt
-        mkdir -p .ccache
-        echo "CONFIG_CCACHE=y" >> .config
-        make defconfig
-        make download -j8
-        make -j$(nproc)
+          SHOULD_BUILD="false"
+          if [ "${RELEASE_EXISTS}" = "false" ] || [ "${FORCE_REBUILD}" = "true" ] || [ -n "${CLEAN_INPUT}" ]; then
+            SHOULD_BUILD="true"
+          fi
 
-    - name: 7. Dang Firmware len muc Releases
-      uses: softprops/action-gh-release@v2
-      with:
-        tag_name: "v1.${{ github.run_number }}"
-        name: "Firmware NR3053 25.12.1 v1.${{ github.run_number }} (auto-build)"
-        files: |
-          immortalwrt/bin/targets/mediatek/filogic/*sysupgrade.bin
-          immortalwrt/bin/targets/mediatek/filogic/*initramfs-kernel.bin
+          echo "Summary: version=${VERSION}, tag=${TAG}, release_exists=${RELEASE_EXISTS}, force_rebuild=${FORCE_REBUILD}, should_build=${SHOULD_BUILD}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "should_build=${SHOULD_BUILD}" >> "$GITHUB_OUTPUT"
 
-    - name: 8. Tao file .nojekyll
-      run: |
-        touch immortalwrt/bin/.nojekyll
+  build:
+    name: Build Firmware (${{ needs.check-version.outputs.version }})
+    needs: check-version
+    if: needs.check-version.outputs.should_build == 'true'
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    env:
+      IM_VERSION: ${{ needs.check-version.outputs.version }}
+      IM_TAG: ${{ needs.check-version.outputs.tag }}
 
-    - name: 9. Xuat ban Kho APK sang gh-pages
-      uses: peaceiris/actions-gh-pages@v4
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./immortalwrt/bin
-        publish_branch: gh-pages
-        keep_files: false
+    steps:
+      - name: 1. Tai nguyen lieu (DTS, Config)
+        uses: actions/checkout@v4
+
+      - name: 2. Giai phong dung luong va Cai dat cong cu
+        run: |
+          sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/share/swift
+          sudo apt-get update
+          sudo apt-get install -y build-essential clang flex bison g++ gawk gcc-multilib g++-multilib gettext git libncurses5-dev libssl-dev python3-distutils rsync unzip zlib1g-dev file wget time ccache
+
+      - name: 3. Tai ma nguon ImmortalWrt Stable ${{ env.IM_VERSION }}
+        run: |
+          set -euo pipefail
+          git clone --depth 1 -b "${IM_TAG}" https://github.com/immortalwrt/immortalwrt.git immortalwrt
+          cd immortalwrt
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+      - name: 4. Khoi tao Bo nho dem CCache
+        uses: actions/cache@v5.1.0
+        with:
+          path: |
+            immortalwrt/.ccache
+            immortalwrt/dl
+            immortalwrt/staging_dir/host
+            immortalwrt/staging_dir/toolchain-*
+          key: ccache-immortalwrt-${{ env.IM_VERSION }}-${{ github.run_number }}
+          restore-keys: |
+            ccache-immortalwrt-${{ env.IM_VERSION }}-
+            ccache-immortalwrt-${{ env.IMMORTALWRT_BRANCH_PREFIX }}.
+            ccache-immortalwrt-
+
+      - name: 5. Cau hinh phan cung, 02_network va Hybrid Repo
+        run: |
+          set -euo pipefail
+
+          # Copy file DTS
+          mkdir -p immortalwrt/target/linux/mediatek/files-6.12/arch/arm64/boot/dts/mediatek/
+          cp mt7981b-sdmc-nr3053.dts immortalwrt/target/linux/mediatek/files-6.12/arch/arm64/boot/dts/mediatek/
+
+          # Chen cau hinh thiet bi vao filogic.mk
+          cat << 'EOF' >> immortalwrt/target/linux/mediatek/image/filogic.mk
+          define Device/sdmc_nr3053
+            DEVICE_VENDOR := SDMC
+            DEVICE_MODEL := NR3053 - DiepKhoa Edition
+            DEVICE_DTS := mt7981b-sdmc-nr3053
+            DEVICE_DTS_DIR := ../files-6.12/arch/arm64/boot/dts/mediatek
+            SUPPORTED_DEVICES := viettel,nr3053 sdmc,nr3053
+            UBINIZE_OPTS := -E 5
+            BLOCKSIZE := 128k
+            PAGESIZE := 2048
+            IMAGE_SIZE := 245760k
+            IMAGES += factory.bin
+            IMAGE/factory.bin := append-ubi | check-size
+            IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+            DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware
+          endef
+          TARGET_DEVICES += sdmc_nr3053
+          EOF
+
+          # Khai bao dung 3 cong LAN + 1 cong WAN vao 02_network (tranh roi vao nhanh mac dinh 4 LAN)
+          sed -i '/mediatek_setup_interfaces()/,/^}/ s/\(case .*board.* in\)/\1\n\tviettel,nr3053|sdmc,nr3053)\n\t\tucidef_set_interfaces_lan_wan "lan1 lan2 lan3" wan\n\t\t;;/' immortalwrt/target/linux/mediatek/filogic/base-files/etc/board.d/02_network
+          grep -A 4 "viettel,nr3053" immortalwrt/target/linux/mediatek/filogic/base-files/etc/board.d/02_network
+
+          # DUNG KICH BAN FIRST-BOOT DE EP HE THONG NHAN REPO CHUAN (dong bo IM_VERSION va KMOD_PAGES_BASE_URL)
+          mkdir -p immortalwrt/files/etc/uci-defaults
+          cat << EOF > immortalwrt/files/etc/uci-defaults/zz-custom-repos
+          #!/bin/sh
+          # Xoa bo cac file backup rac do he thong tu tao ra
+          rm -f /etc/apk/repositories.d/*.bak
+
+          # Ghi de vinh vien danh sach kho chuan (Hybrid Repo)
+          cat << 'REPO_EOF' > /etc/apk/repositories.d/distfeeds.list
+          ${KMOD_PAGES_BASE_URL}/releases/${IM_VERSION}/targets/mediatek/filogic/packages/packages.adb
+          https://downloads.immortalwrt.org/releases/${IM_VERSION}/targets/mediatek/filogic/packages/packages.adb
+          https://downloads.immortalwrt.org/releases/${IM_VERSION}/packages/aarch64_cortex-a53/base/packages.adb
+          https://downloads.immortalwrt.org/releases/${IM_VERSION}/packages/aarch64_cortex-a53/luci/packages.adb
+          https://downloads.immortalwrt.org/releases/${IM_VERSION}/packages/aarch64_cortex-a53/packages/packages.adb
+          https://downloads.immortalwrt.org/releases/${IM_VERSION}/packages/aarch64_cortex-a53/routing/packages.adb
+          https://downloads.immortalwrt.org/releases/${IM_VERSION}/packages/aarch64_cortex-a53/telephony/packages.adb
+          REPO_EOF
+
+          uci delete system.ntp.server
+          uci add_list system.ntp.server='162.159.200.1'
+          uci add_list system.ntp.server='216.239.35.0'
+          uci add_list system.ntp.server='0.openwrt.pool.ntp.org'
+          uci commit system
+
+          # TOI UU HOA TOC DO GIAO DIEN WEB LUCI
+          uci set uhttpd.main.max_requests='100'
+          uci set uhttpd.main.tcp_keepalive='1'
+          uci commit uhttpd
+          # Thoat de he thong tu dong xoa kich ban nay sau khi chay xong
+          exit 0
+          EOF
+          chmod +x immortalwrt/files/etc/uci-defaults/zz-custom-repos
+
+          echo "=== Kiem tra noi dung zz-custom-repos ==="
+          cat immortalwrt/files/etc/uci-defaults/zz-custom-repos
+
+          # Lay dong phien ban kernel 6.12 tu ma nguon ImmortalWrt
+          KPATCH=$(grep '^LINUX_VERSION-6\.12' immortalwrt/include/kernel-6.12 | awk -F'=' '{print $2}' | tr -d '[:space:]')
+          KERNEL_VER="6.12${KPATCH}"
+          echo "KERNEL_VER=${KERNEL_VER}" >> "$GITHUB_ENV"
+
+          # TAO BANNER CHO SSH
+          mkdir -p immortalwrt/files/etc
+          cat << 'EOF' > immortalwrt/files/etc/banner
+            ____  _           ____  _  ___                 
+           |  _ \(_) ___ _ __|  _ \| |/ / |__   ___   __ _ 
+           | | | | |/ _ \ '_ \ | | | ' /| '_ \ / _ \ / _` |
+           | |_| | |  __/ |_) | |_| | . \| | | | (_) | (_| |
+           |____/|_|\___| .__/|____/|_|\_\_| |_|\___/ \__,_|
+                        |_|                                 
+           --------------------------------------------------
+             SDMC NR3053 - DIEPKHOA EDITION
+          EOF
+          cat << EOF >> immortalwrt/files/etc/banner
+             ImmortalWrt ${IM_VERSION} Stable | Kernel ${KERNEL_VER}
+             BE FREE and UNAFAIRD
+           --------------------------------------------------
+
+          EOF
+
+      - name: 6. Bat dau Bien dich (Dung CCache)
+        run: |
+          cp seed.config immortalwrt/.config
+          cd immortalwrt
+          mkdir -p .ccache
+          echo "CONFIG_CCACHE=y" >> .config
+          make defconfig
+          make download -j8
+          make -j$(nproc)
+
+      - name: 7a. Dang Firmware len muc Releases (chi nhanh main)
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "v${{ env.IM_VERSION }}"
+          name: "Firmware NR3053 ImmortalWrt ${{ env.IM_VERSION }} (build #${{ github.run_number }})"
+          body: |
+            ## SDMC NR3053 - DiepKhoa Edition
+            - **ImmortalWrt:** `${{ env.IM_VERSION }}` (`${{ env.IM_TAG }}`)
+            - **Linux Kernel:** `${{ env.KERNEL_VER }}`
+            - **Kmod APK Repo:** `${{ env.KMOD_PAGES_BASE_URL }}/releases/${{ env.IM_VERSION }}/targets/mediatek/filogic/packages/packages.adb`
+            - **SUPPORTED_DEVICES:** `viettel,nr3053`, `sdmc,nr3053` (3 LAN + 1 WAN)
+
+            ### Lưu ý nâng cấp (Sysupgrade)
+            - Khi nâng cấp qua LuCI từ các bản cũ, khuyến nghị giữ tương thích `SUPPORTED_DEVICES` (`viettel,nr3053` / `sdmc,nr3053`).
+            - Nếu chọn **Keep settings** từ bản cũ từng bị dư `lan4` trong `/etc/config/network`, hãy vào **Network → Interfaces → Devices → `br-lan` → Configure** và bỏ chọn `lan4`.
+          files: |
+            immortalwrt/bin/targets/mediatek/filogic/*sysupgrade.bin
+            immortalwrt/bin/targets/mediatek/filogic/*factory.bin
+            immortalwrt/bin/targets/mediatek/filogic/*initramfs-kernel.bin
+
+      - name: 7b. Upload Firmware len Artifacts (thu nghiem nhanh phu)
+        if: github.ref != 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: nr3053-immortalwrt-${{ env.IM_VERSION }}-test
+          path: |
+            immortalwrt/bin/targets/mediatek/filogic/*sysupgrade.bin
+            immortalwrt/bin/targets/mediatek/filogic/*factory.bin
+            immortalwrt/bin/targets/mediatek/filogic/*initramfs-kernel.bin
+          retention-days: 7
+
+      - name: 8. Kiem tra an toan kho Kmod va tao .nojekyll
+        if: github.ref == 'refs/heads/main'
+        run: |
+          test -n "${IM_VERSION}" || { echo "IM_VERSION is empty!"; exit 1; }
+          test -f "./immortalwrt/bin/targets/mediatek/filogic/packages/packages.adb" || { echo "packages.adb missing!"; exit 1; }
+          touch ./immortalwrt/bin/targets/mediatek/filogic/packages/.nojekyll
+
+      - name: 9. Publish Kmod APK Repo to External GitHub Pages
+        if: github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          personal_token: ${{ secrets.KMOD_DEPLOY_TOKEN }}
+          external_repository: ${{ env.KMOD_REPO_OWNER }}/${{ env.KMOD_REPO_NAME }}
+          publish_branch: gh-pages
+          publish_dir: ./immortalwrt/bin/targets/mediatek/filogic/packages
+          destination_dir: releases/${{ env.IM_VERSION }}/targets/mediatek/filogic/packages
+          keep_files: false
+          force_orphan: false
+          enable_jekyll: false
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: 'Deploy kmod repo for ImmortalWrt v${{ env.IM_VERSION }}'
