@@ -39,4 +39,4 @@ Firmware **ImmortalWrt** (nhánh ổn định `25.12.x`) dành cho router **SDMC
 
 ---
 
-*Kiểm tra cập nhật tự động gần nhất: Khởi tạo (ImmortalWrt 25.12.x)*
+*Kiểm tra cập nhật tự động gần nhất: 2026-11-27 04:33:54 (UTC+7) — ImmortalWrt 25.12.2*
