@@ -36,3 +36,7 @@ Firmware **ImmortalWrt** (nhánh ổn định `25.12.x`) dành cho router **SDMC
 ## Lưu ý an toàn
 - Luôn sao lưu cấu hình và giữ nguyên phân vùng `Factory` gốc của router (chứa địa chỉ MAC và thông số sóng Wi-Fi riêng của từng máy).
 - Nếu bạn gặp lỗi hoặc muốn góp ý, hãy mở **Issue** trên repo này nhé!
+
+---
+
+*Kiểm tra cập nhật tự động gần nhất: Khởi tạo (ImmortalWrt 25.12.x)*
