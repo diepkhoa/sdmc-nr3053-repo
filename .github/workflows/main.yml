@@ -23,6 +23,11 @@ on:
         required: false
         default: false
         type: boolean
+      test_keepalive:
+        description: 'Test cap nhat README keepalive (nhu cron hang tuan)'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   check-version:
@@ -86,13 +91,13 @@ jobs:
           echo "should_build=${SHOULD_BUILD}" >> "$GITHUB_OUTPUT"
 
       - name: Checkout repository for weekly keepalive
-        if: github.event_name == 'schedule' && github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || inputs.test_keepalive == true)
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update README timestamp (weekly cron keepalive)
-        if: github.event_name == 'schedule' && github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || inputs.test_keepalive == true)
         env:
           TARGET_VERSION: ${{ steps.check.outputs.version }}
         run: |
