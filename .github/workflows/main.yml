@@ -196,8 +196,9 @@ jobs:
           cat immortalwrt/files/etc/uci-defaults/zz-custom-repos
 
           # Lay dong phien ban kernel 6.12 tu ma nguon ImmortalWrt
-          KPATCH=$(grep '^LINUX_VERSION-6\.12' immortalwrt/include/kernel-6.12 | awk -F'=' '{print $2}' | tr -d '[:space:]')
+          KPATCH=$(grep '^LINUX_VERSION-6\.12' immortalwrt/target/linux/generic/kernel-6.12 | awk -F'=' '{print $2}' | tr -d '[:space:]')
           KERNEL_VER="6.12${KPATCH}"
+          echo "Detected Kernel: ${KERNEL_VER}"
           echo "KERNEL_VER=${KERNEL_VER}" >> "$GITHUB_ENV"
 
           # TAO BANNER CHO SSH
