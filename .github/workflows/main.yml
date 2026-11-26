@@ -29,7 +29,7 @@ jobs:
     name: Check ImmortalWrt Version
     runs-on: ubuntu-22.04
     permissions:
-      contents: read
+      contents: write
     outputs:
       version: ${{ steps.check.outputs.version }}
       tag: ${{ steps.check.outputs.tag }}
@@ -84,6 +84,42 @@ jobs:
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "should_build=${SHOULD_BUILD}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout repository for weekly keepalive
+        if: github.event_name == 'schedule' && github.ref == 'refs/heads/main'
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update README timestamp (weekly cron keepalive)
+        if: github.event_name == 'schedule' && github.ref == 'refs/heads/main'
+        env:
+          TARGET_VERSION: ${{ steps.check.outputs.version }}
+        run: |
+          set -euo pipefail
+          NOW_VN=$(TZ='Asia/Ho_Chi_Minh' date '+%Y-%m-%d %H:%M:%S (UTC+7)')
+          export STATUS_LINE="*Kiểm tra cập nhật tự động gần nhất: ${NOW_VN} — ImmortalWrt ${TARGET_VERSION}*"
+
+          python3 -c '
+          import os, pathlib
+          p = pathlib.Path("README.md")
+          lines = p.read_text(encoding="utf-8").splitlines()
+          status = os.environ["STATUS_LINE"]
+          if lines and lines[-1].startswith("*Kiểm tra cập nhật tự động gần nhất:"):
+              lines[-1] = status
+          else:
+              lines.extend(["", "---", "", status])
+          p.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          '
+
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add README.md
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: weekly update check (${TARGET_VERSION}) [skip ci]"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
 
   build:
     name: Build Firmware (${{ needs.check-version.outputs.version }})
