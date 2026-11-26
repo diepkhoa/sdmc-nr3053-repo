@@ -18,6 +18,16 @@ Firmware **ImmortalWrt** (nhánh ổn định `25.12.x`) dành cho router **SDMC
 
 ---
 
+## Hình ảnh thực tế
+
+### Giao diện LuCI Overview (3 LAN + 1 WAN)
+![LuCI Overview](docs/luci-overview.jpg)
+
+### Giao diện SSH Banner
+![SSH Banner](docs/ssh-banner.png)
+
+---
+
 ## Hướng dẫn cài đặt & nâng cấp
 
 ### Cách 1: Cài lần đầu qua U-Boot Web Recovery
