@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
 /dts-v1/;
 
 / {
@@ -5,7 +6,7 @@
 	interrupt-parent = <0x01>;
 	#address-cells = <0x02>;
 	#size-cells = <0x02>;
-	model = "SDMC NR3053 - DiepKhoa Edition";
+	model = "SDMC NR3053";
 
 	cpus {
 		#address-cells = <0x01>;
